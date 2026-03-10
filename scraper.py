@@ -1,187 +1,114 @@
-import os
-import json
-import time
-import re
-from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
+import re
+import json
+import time
+from datetime import datetime
 
-def main():
+def scrape_garumani():
     session = requests.Session()
-    session.headers.update({
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
-        'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8'
-    })
-    
-    # 1. 最初にベースページにアクセスしてCookieを引き継ぐ
-    print("Fetching base page to set cookies...")
-    try:
-        session.get('https://www.dlsite.com/girls-touch/', timeout=10)
-    except Exception as e:
-        print(f"Error fetching base page: {e}")
-    time.sleep(1.2)
-    
-    url = 'https://www.dlsite.com/girls-touch/ranking/day'
-    print(f"Fetching ranking page: {url}")
-    try:
-        resp = session.get(url, timeout=15)
-        resp.raise_for_status()
-    except Exception as e:
-        print(f"Error fetching ranking page: {e}")
-        return
+    # Cookie取得とGirls版への明示的アクセス
+    session.get("https://www.dlsite.com/girls-touch/", timeout=15)
+    time.sleep(1.5)
 
-    soup = BeautifulSoup(resp.text, 'html.parser')
-    
-    # 画像の抽出
-    # サムネイルはランキングページのHTML内 template[data-id] の data-samples 属性に含まれている
-    thumbnails = {}
-    for t in soup.select('template[data-id]'):
+    url = "https://www.dlsite.com/girls-touch/ranking/day"
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36'}
+    res = session.get(url, headers=headers, timeout=15)
+    soup = BeautifulSoup(res.content, 'html.parser')
+
+    # サムネイル情報の抽出用
+    templates = soup.find_all('template')
+    thumb_map = {}
+    for t in templates:
         data_id = t.get('data-id')
         data_samples = t.get('data-samples')
         if data_id and data_samples:
-            try:
-                # DLsite usually embeds JSON strings in data-samples "[{...}]"
-                samples = json.loads(data_samples)
-                if isinstance(samples, list) and len(samples) > 0 and 'url' in samples[0]:
-                    thumbnails[data_id] = "https:" + samples[0]['url']
-                elif isinstance(samples, str):
-                    thumbnails[data_id] = "https:" + samples if samples.startswith('//') else samples
-            except:
-                if data_samples.startswith('//'):
-                    thumbnails[data_id] = "https:" + data_samples
-                else:
-                    thumbnails[data_id] = data_samples
+            thumb_url = "https:" + data_samples.split(',')[0]
+            thumb_map[data_id] = thumb_url
 
-    ranking = []
-    
-    # 作品ごとの要素を取得
-    # .n_worklist_item または類似のコンテナを探す
-    item_nodes = soup.select('.n_worklist_item, .work_1col, .work_item, .ranking_item')
-    if not item_nodes:
-        # Fallback: find any element containing a link to a work RJ...
-        all_links = soup.find_all('a', href=re.compile(r'/work/=/product_id/RJ\d+'))
-        # Get unique parent containers
-        parents = []
-        for a in all_links:
-            p = a.find_parent('td') or a.find_parent('li') or a.find_parent('div', class_=re.compile(r'item|work'))
-            if p and p not in parents:
-                parents.append(p)
-        item_nodes = parents
+    # ランキングアイテムの取得
+    ranking_items = soup.select('.n_worklist_item')
+    if not ranking_items:
+        ranking_items = soup.select('.work_1col') # 予備のセレクタ
+    ranking_items = ranking_items[:30]
 
-    print(f"Found {len(item_nodes)} item nodes.")
-    
-    rank = 1
-    exclude_tags = {'マンガ', 'ボイス・ASMR', 'ゲーム', '動画'}
-    
-    for node in item_nodes:
-        if rank > 30:
-            break
-            
-        a_tag = node.find('a', href=re.compile(r'/work/=/product_id/(RJ\d+)'))
-        if not a_tag:
-            continue
-            
-        product_id = re.search(r'RJ\d+', a_tag['href']).group(0)
-        
-        # skip 000
-        if product_id.endswith('000'):
-            continue
-            
-        # Title
-        title = a_tag.get_text(strip=True) or a_tag.get('title', '')
-        if not title:
-            title_node = node.select_one('.work_name')
-            if title_node:
-                title = title_node.get_text(strip=True)
-                
-        link = a_tag['href']
-        
-        # Circle
-        circle_node = node.select_one('.maker_name, .circle')
-        circle = circle_node.get_text(strip=True) if circle_node else "Unknown"
-        
-        node_text = node.get_text(" ", strip=True)
-        
-        # Price extraction: 50,000円以下の最大価格を正規価格として採用
-        prices = [int(p) for p in re.findall(r'(\d{1,3}(?:,\d{3})*|\d+)\s*円', node_text.replace(',', ''))]
-        valid_prices = [p for p in prices if p <= 50000]
-        price = max(valid_prices) if valid_prices else 0
-        
-        # Tags: aタグのうち、hrefに 'tag' か 'genre' を含むもの
-        all_tags = [a.get_text(strip=True) for a in node.find_all('a') if a.get('href') and ('tag' in a.get('href') or 'genre' in a.get('href'))]
-        tags = [t for t in all_tags if t not in exclude_tags]
-        
-        # Subgenre filter: remove generic terms if misclassified
-        tags = [t for t in tags if t and t != '']
-        
-        # DL count
-        dl_match = re.search(r'([\d,]+)\s*(?:DL|ダウンロード)', node_text)
-        downloads = int(dl_match.group(1).replace(',', '')) if dl_match else 0
-        
-        # Date: YYYY年MM月DD日 または YYYY/MM/DD
-        date_match = re.search(r'(\d{4})[年/]\s*(\d{1,2})[月/]\s*(\d{1,2})', node_text)
-        release_date = f"{date_match.group(1)}-{int(date_match.group(2)):02d}-{int(date_match.group(3)):02d}" if date_match else ""
-        
-        thumb_url = thumbnails.get(product_id, "")
-        if not thumb_url:
-            # Fallback inline img
-            img = node.find('img')
-            if img:
-                thumb_url = img.get('src') or img.get('data-src') or ""
-                if thumb_url.startswith('//'):
-                    thumb_url = "https:" + thumb_url
-                    
-        ranking.append({
-            "rank": rank,
-            "id": product_id,
+    processed_data = []
+    all_tags_count = {}
+
+    for item in ranking_items:
+        # RJ番号の取得
+        id_link = item.select_one('a[href*="RJ"]')
+        if not id_link: continue
+        work_id = re.search(r'RJ\d+', id_link['href']).group()
+        if work_id.endswith('000'): continue
+
+        title = item.select_one('.work_name').get_text(strip=True)
+
+        # サークル名の取得 (セレクタを強化)
+        circle_elem = item.select_one('.maker_name') or item.select_one('.work_maker')
+        circle = circle_elem.get_text(strip=True) if circle_elem else "不明なサークル"
+
+        work_url = id_link['href']
+        full_text = item.get_text(" ", strip=True) # スペース区切りで取得
+
+        # 価格の抽出 (50,000円以下の最大値)
+        prices = [int(p.replace(',', '')) for p in re.findall(r'(\d{1,3}(?:,\d{3})*)円', full_text)]
+        base_price = max([p for p in prices if p <= 50000]) if prices else 0
+
+        # DL数の抽出 (「12,345 DL」や「500+ ダウンロード」に対応)
+        dl_match = re.search(r'([\d,]+)(?:\s?DL|ダウンロード)', full_text)
+        dl_count = int(dl_match.group(1).replace(',', '')) if dl_match else 0
+
+        # 発売日の抽出
+        date_match = re.search(r'\d{4}/\d{2}/\d{2}', full_text)
+        release_date = date_match.group() if date_match else "不明"
+
+        # タグの取得 (除外設定)
+        exclude_formats = ["マンガ", "ボイス・ASMR", "ゲーム", "動画", "その他", "少女マンガ", "同人誌"]
+        raw_tags = item.select('.search_tag a')
+        filtered_tags = []
+        for t_elem in raw_tags:
+            t_text = t_elem.get_text(strip=True)
+            if t_text and t_text not in exclude_formats:
+                filtered_tags.append(t_text)
+                all_tags_count[t_text] = all_tags_count.get(t_text, 0) + 1
+
+        processed_data.append({
+            "rank": len(processed_data) + 1,
+            "id": work_id,
             "title": title,
             "circle": circle,
-            "url": link,
-            "price": price,
-            "tags": list(set(tags)),
-            "downloads": downloads,
-            "release_date": release_date,
-            "thumbnail": thumb_url
+            "price": base_price,
+            "dl": dl_count,
+            "date": release_date,
+            "tags": filtered_tags,
+            "thumb": thumb_map.get(work_id, ""),
+            "url": work_url
         })
-        print(f"Parsed rank {rank}: {title[:15]}... ({price}円, {downloads}DL)")
-        rank += 1
-        
-    today_str = datetime.now().strftime("%Y-%m-%d")
-    
-    # Save ranking_data.json
+        time.sleep(1.2)
+
+    # JSON保存
     with open('ranking_data.json', 'w', encoding='utf-8') as f:
-        json.dump(ranking, f, ensure_ascii=False, indent=2)
-        
-    # Tag ranking
-    tag_counts = {}
-    for item in ranking:
-        for tag in item['tags']:
-            tag_counts[tag] = tag_counts.get(tag, 0) + 1
-    sorted_tags = sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)[:20]
+        json.dump(processed_data, f, ensure_ascii=False, indent=2)
+
+    # タグランキングの生成
+    tag_ranking = sorted([{"tag": k, "count": v} for k, v in all_tags_count.items()], key=lambda x: x['count'], reverse=True)[:20]
     with open('tag_ranking.json', 'w', encoding='utf-8') as f:
-        json.dump([{"tag": t, "count": c} for t, c in sorted_tags], f, ensure_ascii=False, indent=2)
-        
-    # History
-    history = {}
-    if os.path.exists('ranking_history.json'):
+        json.dump(tag_ranking, f, ensure_ascii=False, indent=2)
+
+    # 履歴の更新
+    try:
         with open('ranking_history.json', 'r', encoding='utf-8') as f:
-            try:
-                history = json.load(f)
-            except:
-                pass
-                
-    history[today_str] = ranking
+            history = json.load(f)
+    except: history = []
     
-    # Keep only last 90 days
-    sorted_dates = sorted(history.keys())
-    if len(sorted_dates) > 90:
-        for d in sorted_dates[:-90]:
-            del history[d]
-            
+    today_str = datetime.now().strftime('%Y-%m-%d')
+    history = [h for h in history if h['date'] != today_str]
+    history.append({"date": today_str, "data": processed_data})
+    history = history[-90:]
+
     with open('ranking_history.json', 'w', encoding='utf-8') as f:
         json.dump(history, f, ensure_ascii=False, indent=2)
 
-    print("Scraping completed successfully.")
-
 if __name__ == "__main__":
-    main()
+    scrape_garumani()

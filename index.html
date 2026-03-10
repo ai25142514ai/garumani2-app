@@ -467,16 +467,16 @@
         a.innerHTML = `
           <div class="rank-badge">${item.rank}</div>
           <div class="thumb-wrapper">
-            <img src="${item.thumbnail}" alt="thumbnail" loading="lazy" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9IiM0NCIvPjwvc3ZnPg=='" />
+            <img src="${item.thumb}" alt="thumbnail" loading="lazy" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9IiM0NCIvPjwvc3ZnPg=='" />
           </div>
           <div class="card-info">
             <div class="title">${item.title}</div>
             <div class="circle">${item.circle}</div>
             <div class="tags">${tagsHtml}</div>
             <div class="meta">
-              <span class="date">${item.release_date}</span>
+              <span class="date">${item.date}</span>
               <span class="price">${item.price.toLocaleString()}円</span>
-              <span class="downloads">${item.downloads.toLocaleString()}</span>
+              <span class="downloads">${item.dl.toLocaleString()}</span>
             </div>
           </div>
         `;
