@@ -83,22 +83,36 @@ def scrape_garumani():
             date_match = re.search(r'\d{4}[年/]\d{1,2}[月/]\d{1,2}', full_text)
             release_date = date_match.group().replace('年', '-').replace('月', '-').replace('/', '-') if date_match else "不明"
 
-            # タグの取得 (除外設定)
+            # タグの取得 (詳細ページへアクセスして取得)
             exclude_formats = {"マンガ", "ボイス・ASMR", "ゲーム", "動画", "その他", "少女マンガ", "同人誌", "CG・イラスト"}
-            raw_tags_elems = item.select('.search_tag a, a[href*="genre"]')
             filtered_tags = []
             
-            for t_elem in raw_tags_elems:
-                # a タグの title 属性がある場合はそれを優先、なければテキスト
-                t_text = t_elem.get('title') or t_elem.get_text(strip=True)
-                if t_text and t_text not in exclude_formats:
-                    # Remove trailing hash elements if present
-                    t_text = t_text.split('#')[0].strip()
-                    # 3文字アルファベット（'OTN', 'JPN'等）は除外、日本語か3文字以上を許容
-                    if t_text and (not re.match(r'^[A-Za-z]{3}$', t_text) or len(t_text) > 3):
-                        filtered_tags.append(t_text)
+            try:
+                # 紳士的なスクレイピングのための待機 (一覧取得後も最低限待機)
+                time.sleep(1.5)
+                
+                # 個別ページへアクセス
+                detail_res = session.get(work_url, headers=headers, timeout=15)
+                detail_soup = BeautifulSoup(detail_res.content, 'html.parser')
+                
+                # ハッシュタグ形式のリンク、または main_genre 内のリンクを抽出
+                raw_tags_elems = detail_soup.select('.main_genre a, .search_tag a, a[href*="genre"], a[href*="keyword"]')
+                
+                for t_elem in raw_tags_elems:
+                    t_text = t_elem.get_text(strip=True)
+                    if not t_text: continue
+                    
+                    # 不要なジャンル名、記号などを除外
+                    clean_text = t_text.replace('#', '').strip()
+                    if clean_text and clean_text not in exclude_formats:
+                        # 3文字アルファベット（'OTN', 'JPN'等）は除外、日本語か3文字以上を許容
+                        if not re.match(r'^[A-Za-z]{3}$', clean_text) or len(clean_text) > 3:
+                            filtered_tags.append(clean_text)
+                            
+            except Exception as tag_e:
+                print(f"[DEBUG] 詳細ページからのタグ取得失敗 - ID: {work_id}, URL: {work_url}, Error: {tag_e}")
 
-            for tag in filtered_tags:
+            for tag in set(filtered_tags): # 重複を避けてカウント
                 all_tags_count[tag] = all_tags_count.get(tag, 0) + 1
                         
             # デバッグ情報出力
