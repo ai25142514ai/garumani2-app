@@ -27,7 +27,7 @@ def scrape_garumani():
             thumb_map[data_id] = thumb_url
 
     # ランキングアイテムの取得
-    ranking_items = soup.select('.n_worklist_item')
+    ranking_items = soup.select('.n_work_item')
     if not ranking_items:
         ranking_items = soup.select('.work_1col') # 予備のセレクタ
     ranking_items = ranking_items[:30]
