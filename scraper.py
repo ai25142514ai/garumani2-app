@@ -1,6 +1,8 @@
 import requests
 from bs4 import BeautifulSoup
 import re
+import math
+import re
 import json
 import time
 from datetime import datetime
@@ -23,10 +25,15 @@ def scrape_garumani():
         data_id = t.get('data-id')
         data_samples = t.get('data-samples')
         if data_id and data_samples:
-            # `data_id` から `RJxxxxxx` 形式のメイン画像URLを直接生成する (確実な直リンク)
+            # `data_id` から 1000の位を切り上げたフォルダ名を計算 (RJ01234567 -> RJ01235000)
             if data_id.startswith('RJ'):
-                # 前方一致で RJ 以下の数字部分を使う (RJ123456 -> RJ123456_img_main.jpg)
-                thumb_map[data_id] = f"https://img.dlsite.jp/modpub/images2/work/doujin/{data_id}/{data_id}_img_main.jpg"
+                num_str = data_id[2:]
+                num_int = int(num_str)
+                # 1000単位で切り上げ
+                folder_num = math.ceil(num_int / 1000) * 1000
+                folder_id = f"RJ{str(folder_num).zfill(len(num_str))}"
+                
+                thumb_map[data_id] = f"https://img.dlsite.jp/modpub/images2/work/doujin/{folder_id}/{data_id}_img_main.jpg"
             else:
                 thumb_map[data_id] = ""
 
@@ -99,8 +106,8 @@ def scrape_garumani():
                 detail_res = session.get(work_url, headers=headers, timeout=15)
                 detail_soup = BeautifulSoup(detail_res.content, 'html.parser')
 
-                # 作品詳細のメインエリアにあるジャンルタグのみを抽出（サイドバーのランキング等を無視）
-                raw_tags_elems = detail_soup.select('.main_genre a[href*="/genre/"]')
+                # 個別ページ内の a[href*="/genre/"] をすべて取得
+                raw_tags_elems = detail_soup.select('a[href*="/genre/"]')
                 
                 for t_elem in raw_tags_elems:
                     t_text = t_elem.get_text(strip=True)

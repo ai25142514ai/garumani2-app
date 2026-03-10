@@ -392,6 +392,11 @@
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
         btn.classList.add('active');
         document.getElementById(btn.dataset.target).classList.add('active');
+        
+        // Re-render WordCloud if switching to visual tab to ensure correct dimensions
+        if (btn.dataset.target === 'visual' && window.currentTagData) {
+          setTimeout(() => renderWordCloud(window.currentTagData), 50);
+        }
       });
     });
 
@@ -429,6 +434,7 @@
 
         if (tagRes.ok) {
           const tagData = await tagRes.json();
+          window.currentTagData = tagData; // Store for re-rendering on tab switch
           renderTags(tagData);
           renderWordCloud(tagData);
         }
@@ -554,8 +560,9 @@
           backgroundColor: colors[i % colors.length] + '40',
           tension: 0.4,
           borderWidth: 2,
-          pointRadius: 3,
-          pointHoverRadius: 6
+          pointRadius: counts.length === 1 ? 6 : 3, // Make point larger if only 1 day of data
+          pointHoverRadius: 8,
+          spanGaps: true
         };
       });
 
@@ -596,7 +603,8 @@
           scales: {
             x: {
               grid: { color: 'rgba(255, 255, 255, 0.05)' },
-              ticks: { maxTicksLimit: 7 }
+              ticks: { maxTicksLimit: 7 },
+              offset: true // Ensure single point is centered and not cut off on X axis
             },
             y: {
               beginAtZero: true,
