@@ -1,0 +1,38 @@
+name: DLsite Garumani Scraper
+
+on:
+  schedule:
+    # 毎日JST深夜0時 (UTC 15:00)
+    - cron: '0 15 * * *'
+  workflow_dispatch:
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4
+          
+      - name: Run Scraper
+        run: python scraper.py
+        
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add ranking_data.json tag_ranking.json ranking_history.json
+          git commit -m "Auto-update ranking data [skip ci]" || echo "No changes to commit"
+          git push

@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Garumani Trend</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Kaisei+Decol:wght@500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #0d0010;
+      --card-bg: #1a0025;
+      --main: #ff4da6;
+      --sub: #b44dff;
+      --accent: #ff80c8;
+      --text: #f0e0ff;
+      --text-muted: #c9a0dc;
+      --gold: #ffd700;
+      --silver: #c0c0c0;
+      --bronze: #cd7f32;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Noto Sans JP', sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      max-width: 600px;
+      margin: 0 auto;
+      min-height: 100vh;
+      position: relative;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-image: linear-gradient(rgba(180, 77, 255, 0.04) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(180, 77, 255, 0.04) 1px, transparent 1px);
+      background-size: 20px 20px;
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    header {
+      padding: 24px 16px 16px;
+      text-align: center;
+      position: sticky;
+      top: 0;
+      background: rgba(13, 0, 16, 0.85);
+      backdrop-filter: blur(10px);
+      z-index: 100;
+      border-bottom: 1px solid rgba(255, 77, 166, 0.2);
+    }
+
+    h1 {
+      font-family: 'Kaisei Decol', serif;
+      font-size: 28px;
+      color: #fff;
+      text-shadow: 0 0 10px var(--main), 0 0 20px var(--sub);
+      margin-bottom: 16px;
+      letter-spacing: 2px;
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      justify-content: space-around;
+      gap: 8px;
+      padding: 0 4px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    .tabs::-webkit-scrollbar { display: none; }
+
+    .tab-btn {
+      background: rgba(26, 0, 37, 0.6);
+      border: 1px solid rgba(180, 77, 255, 0.3);
+      color: var(--text-muted);
+      padding: 10px 14px;
+      border-radius: 20px;
+      font-weight: 500;
+      font-size: 13px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .tab-btn.active {
+      background: linear-gradient(135deg, var(--main), var(--sub));
+      color: #fff;
+      border-color: transparent;
+      box-shadow: 0 0 15px rgba(255, 77, 166, 0.4);
+      transform: scale(1.05);
+    }
+
+    .tab-content {
+      display: none;
+      padding: 20px 16px;
+      animation: fadeUp 0.4s ease forwards;
+    }
+    .tab-content.active { display: block; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(15px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Cards */
+    .ranking-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 12px;
+      display: flex;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--text);
+      position: relative;
+      border: 1px solid rgba(180, 77, 255, 0.15);
+      transition: all 0.3s ease;
+      overflow: hidden;
+      cursor: pointer;
+    }
+
+    .card:hover {
+      box-shadow: 0 0 20px rgba(255, 77, 166, 0.2), inset 0 0 10px rgba(180, 77, 255, 0.1);
+      border-color: rgba(255, 77, 166, 0.5);
+      transform: translateY(-2px);
+    }
+
+    .card.rank-1 { border-color: var(--gold); }
+    .card.rank-2 { border-color: var(--silver); }
+    .card.rank-3 { border-color: var(--bronze); }
+
+    .card.rank-1::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 12px;
+      box-shadow: 0 0 15px var(--gold) inset;
+      animation: pulseGold 2s infinite alternate;
+      pointer-events: none;
+    }
+
+    @keyframes pulseGold {
+      from { opacity: 0.3; }
+      to { opacity: 0.8; box-shadow: 0 0 25px var(--gold) inset; }
+    }
+
+    .rank-badge {
+      position: absolute;
+      top: -6px;
+      left: -6px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Kaisei Decol', serif;
+      font-weight: bold;
+      font-size: 16px;
+      border: 2px solid var(--text-muted);
+      z-index: 2;
+    }
+
+    .rank-1 .rank-badge { background: linear-gradient(135deg, #fff, var(--gold)); color: #000; border-color: var(--gold); }
+    .rank-2 .rank-badge { background: linear-gradient(135deg, #fff, var(--silver)); color: #000; border-color: var(--silver); }
+    .rank-3 .rank-badge { background: linear-gradient(135deg, #fcd0b4, var(--bronze)); color: #000; border-color: var(--bronze); }
+
+    .thumb-wrapper {
+      width: 90px;
+      height: 90px;
+      border-radius: 8px;
+      overflow: hidden;
+      flex-shrink: 0;
+      background: rgba(0,0,0,0.5);
+    }
+
+    .thumb-wrapper img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .card-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-width: 0;
+    }
+
+    .title {
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.4;
+      margin-bottom: 4px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .circle {
+      font-size: 11px;
+      color: var(--accent);
+      margin-bottom: 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-bottom: 8px;
+    }
+
+    .tag {
+      font-size: 10px;
+      background: rgba(180, 77, 255, 0.2);
+      color: var(--text);
+      padding: 2px 6px;
+      border-radius: 10px;
+      border: 1px solid rgba(180, 77, 255, 0.4);
+    }
+
+    .meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: auto;
+    }
+
+    .price { color: #fff; font-weight: bold; }
+    .downloads::before { content: '⬇'; margin-right: 2px; color: var(--main); }
+
+    /* Tag Ranking */
+    .tag-bar-item {
+      margin-bottom: 12px;
+    }
+    .tag-bar-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+    .tag-bar-bg {
+      height: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .tag-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--main), var(--sub));
+      border-radius: 4px;
+      transition: width 1s ease-out;
+      box-shadow: 0 0 8px var(--main);
+    }
+
+    /* Particles */
+    .particle {
+      position: fixed;
+      pointer-events: none;
+      animation: particleFly 1s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+      z-index: 9999;
+      font-size: 16px;
+      opacity: 0;
+    }
+
+    @keyframes particleFly {
+      0% { opacity: 1; transform: translate(0, 0) scale(0.5); }
+      100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(1.5) rotate(20deg); }
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: var(--accent);
+      font-family: 'Kaisei Decol', serif;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.6; }
+      50% { opacity: 1; text-shadow: 0 0 10px var(--main); }
+      100% { opacity: 0.6; }
+    }
+
+    /* Chart Container */
+    .chart-container {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 16px;
+      border: 1px solid rgba(180, 77, 255, 0.2);
+      box-shadow: 0 0 15px rgba(0,0,0,0.5);
+      margin-bottom: 20px;
+    }
+
+    /* Visual Trend Placeholder */
+    .placeholder-box {
+      border: 2px dashed rgba(180, 77, 255, 0.4);
+      border-radius: 16px;
+      padding: 40px 20px;
+      text-align: center;
+      background: rgba(26, 0, 37, 0.4);
+    }
+    .placeholder-icon {
+      font-size: 40px;
+      margin-bottom: 16px;
+      text-shadow: 0 0 15px var(--main);
+    }
+    .placeholder-text {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text-muted);
+    }
+    .placeholder-badge {
+      display: inline-block;
+      margin-top: 16px;
+      padding: 4px 12px;
+      background: linear-gradient(90deg, var(--main), var(--sub));
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Garumani Trend</h1>
+    <div class="tabs">
+      <button class="tab-btn active" data-target="ranking">🏆 ランキング</button>
+      <button class="tab-btn" data-target="tags">🏷️ 人気タグ</button>
+      <button class="tab-btn" data-target="graph">📈 グラフ</button>
+      <button class="tab-btn" data-target="visual">✨ ビジュアル</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="ranking" class="tab-content active">
+      <div id="ranking-container" class="ranking-list">
+        <div class="loading">データを読み込み中...</div>
+      </div>
+    </div>
+
+    <div id="tags" class="tab-content">
+      <div id="tags-container"></div>
+    </div>
+
+    <div id="graph" class="tab-content">
+      <div class="chart-container">
+        <canvas id="historyChart"></canvas>
+      </div>
+      <p style="font-size:12px; color:var(--text-muted); text-align:center;">※過去90日間の特定タグラインキング推移</p>
+    </div>
+
+    <div id="visual" class="tab-content">
+      <div class="placeholder-box">
+        <div class="placeholder-icon">✨🎨✨</div>
+        <p class="placeholder-text">
+          AIによるサムネイル画像解析・トレンド可視化<br>
+          (配色、髪色、服装傾向など)
+        </p>
+        <div class="placeholder-badge">Phase 2 開発予定</div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // Tab switching logic
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.target).classList.add('active');
+      });
+    });
+
+    // Particle effect on click
+    function spawnParticles(e) {
+      const icons = ['💗', '✨', '⭐', '💎'];
+      for (let i = 0; i < 6; i++) {
+        const p = document.createElement('div');
+        p.innerText = icons[Math.floor(Math.random() * icons.length)];
+        p.className = 'particle';
+        p.style.left = e.clientX + 'px';
+        p.style.top = e.clientY + 'px';
+        p.style.setProperty('--tx', (Math.random() * 100 - 50) + 'px');
+        p.style.setProperty('--ty', (-100 - Math.random() * 100) + 'px');
+        document.body.appendChild(p);
+        setTimeout(() => p.remove(), 1000);
+      }
+    }
+
+    // Load Ranking Data
+    async function loadData() {
+      try {
+        const [rankRes, tagRes, histRes] = await Promise.all([
+          fetch('ranking_data.json').catch(() => ({ok:false})),
+          fetch('tag_ranking.json').catch(() => ({ok:false})),
+          fetch('ranking_history.json').catch(() => ({ok:false}))
+        ]);
+
+        if (rankRes.ok) {
+          const rankData = await rankRes.json();
+          renderRanking(rankData);
+        } else {
+          document.getElementById('ranking-container').innerHTML = '<div class="loading" style="color:#ff4d4d">データが見つかりません</div>';
+        }
+
+        if (tagRes.ok) {
+          const tagData = await tagRes.json();
+          renderTags(tagData);
+        }
+
+        if (histRes.ok) {
+          const histData = await histRes.json();
+          renderChart(histData);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function renderRanking(data) {
+      const container = document.getElementById('ranking-container');
+      container.innerHTML = '';
+      
+      if (!data || data.length === 0) {
+        container.innerHTML = '<div class="loading">データが空です</div>';
+        return;
+      }
+
+      data.forEach(item => {
+        const a = document.createElement('a');
+        a.href = item.url;
+        a.target = '_blank';
+        a.className = `card rank-${item.rank}`;
+        
+        a.addEventListener('click', (e) => {
+          spawnParticles(e);
+        });
+
+        const tagsHtml = item.tags.slice(0, 4).map(t => `<span class="tag">${t}</span>`).join('');
+        
+        a.innerHTML = `
+          <div class="rank-badge">${item.rank}</div>
+          <div class="thumb-wrapper">
+            <img src="${item.thumbnail}" alt="thumbnail" loading="lazy" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9IiM0NCIvPjwvc3ZnPg=='" />
+          </div>
+          <div class="card-info">
+            <div class="title">${item.title}</div>
+            <div class="circle">${item.circle}</div>
+            <div class="tags">${tagsHtml}</div>
+            <div class="meta">
+              <span class="date">${item.release_date}</span>
+              <span class="price">${item.price.toLocaleString()}円</span>
+              <span class="downloads">${item.downloads.toLocaleString()}</span>
+            </div>
+          </div>
+        `;
+        container.appendChild(a);
+      });
+    }
+
+    function renderTags(data) {
+      const container = document.getElementById('tags-container');
+      container.innerHTML = '';
+      
+      if (!data || data.length === 0) return;
+      
+      const maxCount = data[0].count || 1;
+      
+      data.forEach(item => {
+        const percentage = Math.max(5, (item.count / maxCount) * 100);
+        const div = document.createElement('div');
+        div.className = 'tag-bar-item';
+        div.innerHTML = `
+          <div class="tag-bar-label">
+            <span>${item.tag}</span>
+            <span style="color:var(--main)">${item.count}</span>
+          </div>
+          <div class="tag-bar-bg">
+            <div class="tag-bar-fill" style="width: 0%"></div>
+          </div>
+        `;
+        container.appendChild(div);
+        
+        // Animate bar
+        setTimeout(() => {
+          div.querySelector('.tag-bar-fill').style.width = `${percentage}%`;
+        }, 100);
+      });
+    }
+
+    function renderChart(historyData) {
+      if (!historyData || Object.keys(historyData).length === 0) return;
+
+      // Extract top tags from the latest day to track
+      const dates = Object.keys(historyData).sort();
+      const latestData = historyData[dates[dates.length - 1]];
+      
+      if(!latestData) return;
+
+      let latestTagCounts = {};
+      latestData.forEach(item => {
+        item.tags.forEach(t => {
+          latestTagCounts[t] = (latestTagCounts[t] || 0) + 1;
+        });
+      });
+      
+      const topTags = Object.entries(latestTagCounts)
+        .sort((a,b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(t => t[0]);
+
+      // Organize datasets
+      const colors = ['#ff4da6', '#b44dff', '#4dffff', '#ffb44d', '#ff4d4d', '#4dffb4', '#ffff4d', '#4d4dff'];
+      
+      const datasets = topTags.map((tag, i) => {
+        const counts = dates.map(date => {
+          const dayItems = historyData[date];
+          let count = 0;
+          dayItems.forEach(item => {
+            if(item.tags.includes(tag)) count++;
+          });
+          return count;
+        });
+        
+        return {
+          label: tag,
+          data: counts,
+          borderColor: colors[i % colors.length],
+          backgroundColor: colors[i % colors.length] + '40',
+          tension: 0.4,
+          borderWidth: 2,
+          pointRadius: 3,
+          pointHoverRadius: 6
+        };
+      });
+
+      const ctx = document.getElementById('historyChart').getContext('2d');
+      Chart.defaults.color = '#c9a0dc';
+      Chart.defaults.font.family = "'Noto Sans JP', sans-serif";
+
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: dates.map(d => d.slice(5)), // MM-DD
+          datasets: datasets
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'index',
+            intersect: false,
+          },
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                usePointStyle: true,
+                padding: 15
+              }
+            },
+            tooltip: {
+              backgroundColor: 'rgba(26, 0, 37, 0.9)',
+              titleColor: '#fff',
+              bodyColor: '#f0e0ff',
+              borderColor: 'rgba(255, 77, 166, 0.5)',
+              borderWidth: 1,
+              padding: 10
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(255, 255, 255, 0.05)' },
+              ticks: { maxTicksLimit: 7 }
+            },
+            y: {
+              beginAtZero: true,
+              grid: { color: 'rgba(255, 255, 255, 0.1)' }
+            }
+          }
+        }
+      });
+    }
+
+    // Init
+    loadData();
+  </script>
+</body>
+</html>
