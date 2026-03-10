@@ -96,14 +96,18 @@ def scrape_garumani():
     with open('tag_ranking.json', 'w', encoding='utf-8') as f:
         json.dump(tag_ranking, f, ensure_ascii=False, indent=2)
 
-    # 履歴の更新
+    # 履歴の更新 (読み込みエラー対策を強化)
     try:
         with open('ranking_history.json', 'r', encoding='utf-8') as f:
             history = json.load(f)
-    except: history = []
+            if not isinstance(history, list):
+                history = []
+    except:
+        history = []
     
     today_str = datetime.now().strftime('%Y-%m-%d')
-    history = [h for h in history if h['date'] != today_str]
+    # 各要素が辞書形式であることを確認してからフィルタリングする
+    history = [h for h in history if isinstance(h, dict) and h.get('date') != today_str]
     history.append({"date": today_str, "data": processed_data})
     history = history[-90:]
 
