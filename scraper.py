@@ -73,10 +73,13 @@ def scrape_garumani():
             else:
                 thumb_map[data_id] = ""
 
-    # ランキングアイテムの取得
-    ranking_items = soup.select('.n_work_item')
+    # ランキングアイテムの取得 (スマホ版の正しいクラス .n_worklist_item に特定)
+    ranking_items = soup.select('.n_worklist_item')
+    if not ranking_items:
+        ranking_items = soup.select('.n_work_item') # フォールバック
     if not ranking_items:
         ranking_items = soup.select('.work_1col') # 予備のセレクタ
+        
     ranking_items = ranking_items[:30]
 
     processed_data = []
@@ -136,8 +139,9 @@ def scrape_garumani():
             voice_actors = set()
             
             try:
-                # 各作品のコンテナ（.n_work_item）の中にあるタグのみを取得 (サイドバー回避)
-                raw_tags_elems = item.select('a[href*="/genre/"]')
+                # 各作品のコンテナの中から、『作品自体のタグ』のみを抽出 (サイドバーや他要素を除外)
+                raw_tags_elems = item.select('.work_genre a, a[href*="/genre/"]')
+                # .n_worklist_itemなど作品ブロック内に限定しているため、これで他作品のタグは混ざりません
                 
                 for t_elem in raw_tags_elems:
                     t_text = t_elem.get_text(strip=True)

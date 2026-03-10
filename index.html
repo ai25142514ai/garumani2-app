@@ -412,15 +412,15 @@
     });
 
     // Particle effect on click (Retro Pixel Hearts)
-    document.body.addEventListener('click', (e) => {
+    document.addEventListener('click', (e) => {
       // Ignore clicks on interactive elements
       if (e.target.tagName.toLowerCase() === 'button' || e.target.closest('a')) return;
       
       const heart = document.createElement('div');
       heart.className = 'pixel-heart';
       heart.innerText = '❤️';
-      heart.style.left = e.clientX + 'px';
-      heart.style.top = e.clientY + 'px';
+      heart.style.left = e.pageX + 'px';
+      heart.style.top = e.pageY + 'px';
       document.body.appendChild(heart);
       setTimeout(() => heart.remove(), 1000);
     });
@@ -634,11 +634,14 @@
             x: {
               grid: { color: 'rgba(255, 255, 255, 0.05)' },
               ticks: { maxTicksLimit: 7 },
-              offset: true // Ensure single point is centered and not cut off on X axis
+              offset: true // Ensure single point is centered
             },
             y: {
               beginAtZero: true,
-              grid: { color: 'rgba(255, 255, 255, 0.1)' }
+              min: 0,
+              suggestedMax: 10, // Ensure there is a visible scale even with small numbers or 1 point
+              grid: { color: 'rgba(255, 255, 255, 0.1)' },
+              ticks: { stepSize: 1 }
             }
           }
         }
