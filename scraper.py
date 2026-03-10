@@ -23,8 +23,11 @@ def scrape_garumani():
         data_id = t.get('data-id')
         data_samples = t.get('data-samples')
         if data_id and data_samples:
-            thumb_url = "https:" + data_samples.split(',')[0]
-            thumb_map[data_id] = thumb_url
+            img_match = re.search(r'//img\.dlsite\.jp/.*\.jpg', data_samples)
+            if img_match:
+                thumb_map[data_id] = "https:" + img_match.group(0)
+            else:
+                thumb_map[data_id] = ""
 
     # ランキングアイテムの取得
     ranking_items = soup.select('.n_work_item')
@@ -70,24 +73,33 @@ def scrape_garumani():
             release_date = date_match.group().replace('年', '-').replace('月', '-').replace('/', '-') if date_match else "不明"
 
             # タグの取得 (除外設定)
-            exclude_formats = ["マンガ", "ボイス・ASMR", "ゲーム", "動画", "その他", "少女マンガ", "同人誌", "ボイス・ASMR", "CG・イラスト"]
-            # Try parsing from ga4 hidden attribute or work_category if search_tag fails
-            raw_tags_elems = item.select('.search_tag a') or item.select('.work_category')
+            exclude_formats = {"マンガ", "ボイス・ASMR", "ゲーム", "動画", "その他", "少女マンガ", "同人誌", "CG・イラスト"}
+            raw_tags_elems = item.select('.search_tag a, a[href*="genre"]')
             filtered_tags = []
             
-            if raw_tags_elems:
-                for t_elem in raw_tags_elems:
-                    t_text = t_elem.get_text(strip=True)
-                    if t_text and t_text not in exclude_formats:
+            for t_elem in raw_tags_elems:
+                t_text = t_elem.get_text(strip=True)
+                if t_text and t_text not in exclude_formats:
+                    # Remove trailing hash elements if present
+                    t_text = t_text.split('#')[0].strip()
+                    if t_text:
                         filtered_tags.append(t_text)
-                        all_tags_count[t_text] = all_tags_count.get(t_text, 0) + 1
-            else:
-                # ga4_event fallback
+                        
+            # fallbacks parsing if tags were not found in standard selectors
+            if not filtered_tags:
                 ga4_elem = item.select_one(f'.ga4_event_item_{work_id}')
                 if ga4_elem and ga4_elem.get('data-options'):
                     for tag_code in ga4_elem.get('data-options').split('#'):
                         filtered_tags.append(tag_code)
-                        all_tags_count[tag_code] = all_tags_count.get(tag_code, 0) + 1
+
+            for tag in filtered_tags:
+                all_tags_count[tag] = all_tags_count.get(tag, 0) + 1
+                        
+            # デバッグ情報出力
+            if base_price == 0 or dl_count == 0 or not filtered_tags:
+                print(f"[DEBUG] 取得漏れあり - ID: {work_id}")
+                print(f"Price: {base_price}, DL: {dl_count}, Tags: {filtered_tags}")
+                print(f"Raw text:\n{full_text}\n---")
 
             processed_data.append({
                 "rank": len(processed_data) + 1,
