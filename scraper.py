@@ -23,9 +23,10 @@ def scrape_garumani():
         data_id = t.get('data-id')
         data_samples = t.get('data-samples')
         if data_id and data_samples:
-            img_match = re.search(r'//img\.dlsite\.jp/[^"\']*\.jpg', data_samples)
-            if img_match:
-                thumb_map[data_id] = "https:" + img_match.group(0)
+            # `data_id` から `RJxxxxxx` 形式のメイン画像URLを直接生成する (確実な直リンク)
+            if data_id.startswith('RJ'):
+                # 前方一致で RJ 以下の数字部分を使う (RJ123456 -> RJ123456_img_main.jpg)
+                thumb_map[data_id] = f"https://img.dlsite.jp/modpub/images2/work/doujin/{data_id}/{data_id}_img_main.jpg"
             else:
                 thumb_map[data_id] = ""
 
@@ -98,8 +99,8 @@ def scrape_garumani():
                 detail_res = session.get(work_url, headers=headers, timeout=15)
                 detail_soup = BeautifulSoup(detail_res.content, 'html.parser')
 
-                # リンク先に /genre/ が含まれるaタグをすべて取得
-                raw_tags_elems = detail_soup.select('a[href*="/genre/"]')
+                # 作品詳細のメインエリアにあるジャンルタグのみを抽出（サイドバーのランキング等を無視）
+                raw_tags_elems = detail_soup.select('.main_genre a[href*="/genre/"]')
                 
                 for t_elem in raw_tags_elems:
                     t_text = t_elem.get_text(strip=True)
@@ -174,7 +175,7 @@ def scrape_garumani():
         history = []
     
     today_str = datetime.now().strftime('%Y-%m-%d')
-    # 各要素が辞書形式であることを確認してからフィルタリングする
+    # 各要素が辞書形式であることを確認してからフィルタリングする (リスト形式の保証)
     history = [h for h in history if isinstance(h, dict) and h.get('date') != today_str]
     history.append({"date": today_str, "data": processed_data})
     history = history[-90:]
