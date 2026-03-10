@@ -23,7 +23,7 @@ def scrape_garumani():
         data_id = t.get('data-id')
         data_samples = t.get('data-samples')
         if data_id and data_samples:
-            img_match = re.search(r'//img\.dlsite\.jp/.*\.jpg', data_samples)
+            img_match = re.search(r'//img\.dlsite\.jp/[^"\']*\.jpg', data_samples)
             if img_match:
                 thumb_map[data_id] = "https:" + img_match.group(0)
             else:
@@ -60,13 +60,24 @@ def scrape_garumani():
             work_url = href
             full_text = item.get_text(" ", strip=True) # スペース区切りで取得
 
-            # 価格の抽出 (50,000円以下の最大値)
-            prices = [int(p.replace(',', '')) for p in re.findall(r'(\d{1,3}(?:,\d{3})*)円', full_text)]
+            # 価格の抽出 (50,000円以下の最大値) (\d{1,3}(?:,\d{3})*)\s?円 という正規表現を使用
+            price_matches = re.findall(r'(\d{1,3}(?:,\d{3})*)\s?円', full_text)
+            prices = [int(p.replace(',', '')) for p in price_matches]
             base_price = max([p for p in prices if p <= 50000]) if prices else 0
 
-            # DL数の抽出 (「12,345 DL」や「500+ ダウンロード」に対応)
-            dl_match = re.search(r'([\d,]+)(?:\s?DL|ダウンロード)', full_text)
-            dl_count = int(dl_match.group(1).replace(',', '')) if dl_match else 0
+            # DL数の抽出: 価格より後に出現する最初のカッコ内の数字 \(\s?([\d,]+)\s?\) を抽出
+            dl_count = 0
+            if base_price > 0:
+                # 雑ですが、テキスト全体からカッコ内のDL数を拾う
+                dl_match = re.search(r'\(\s?([\d,]+)\s?\)', full_text)
+                if dl_match:
+                    dl_count = int(dl_match.group(1).replace(',', ''))
+            
+            if dl_count == 0:
+                # 念のため元のフォールバックも残す
+                dl_match_alt = re.search(r'([\d,]+)(?:\s?DL|ダウンロード)', full_text)
+                if dl_match_alt:
+                    dl_count = int(dl_match_alt.group(1).replace(',', ''))
 
             # 発売日の抽出
             date_match = re.search(r'\d{4}[年/]\d{1,2}[月/]\d{1,2}', full_text)
@@ -78,19 +89,14 @@ def scrape_garumani():
             filtered_tags = []
             
             for t_elem in raw_tags_elems:
-                t_text = t_elem.get_text(strip=True)
+                # a タグの title 属性がある場合はそれを優先、なければテキスト
+                t_text = t_elem.get('title') or t_elem.get_text(strip=True)
                 if t_text and t_text not in exclude_formats:
                     # Remove trailing hash elements if present
                     t_text = t_text.split('#')[0].strip()
-                    if t_text:
+                    # 3文字アルファベット（'OTN', 'JPN'等）は除外、日本語か3文字以上を許容
+                    if t_text and (not re.match(r'^[A-Za-z]{3}$', t_text) or len(t_text) > 3):
                         filtered_tags.append(t_text)
-                        
-            # fallbacks parsing if tags were not found in standard selectors
-            if not filtered_tags:
-                ga4_elem = item.select_one(f'.ga4_event_item_{work_id}')
-                if ga4_elem and ga4_elem.get('data-options'):
-                    for tag_code in ga4_elem.get('data-options').split('#'):
-                        filtered_tags.append(tag_code)
 
             for tag in filtered_tags:
                 all_tags_count[tag] = all_tags_count.get(tag, 0) + 1
