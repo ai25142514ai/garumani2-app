@@ -2,10 +2,46 @@ import requests
 from bs4 import BeautifulSoup
 import re
 import math
-import re
 import json
 import time
 from datetime import datetime
+from io import BytesIO
+from PIL import Image
+
+def get_dominant_color_category(img_url, session):
+    try:
+        r = session.get(img_url, timeout=5)
+        if r.status_code != 200:
+            return "取得失敗"
+        img = Image.open(BytesIO(r.content)).convert('RGB')
+        img.thumbnail((50, 50))
+        colors = img.getcolors(50 * 50)
+        colors.sort(reverse=True, key=lambda x: x[0])
+        dominant_rgb = colors[0][1]
+        
+        categories = {
+            '黒髪系/ダーク': (30, 30, 30),
+            'ホワイト/明るめ': (240, 240, 240),
+            'ネオンピンク': (255, 105, 180),
+            'ブルー系': (100, 149, 237),
+            'レッド/情熱': (220, 20, 60),
+            'パープル/小悪魔': (138, 43, 226),
+            'イエロー/ブロンド': (255, 215, 0),
+            'グリーン/ナチュラル': (60, 179, 113),
+            'ブラウン/肌色系': (210, 180, 140)
+        }
+        
+        min_dist = float('inf')
+        closest_name = "その他"
+        for name, code in categories.items():
+            dist = (dominant_rgb[0] - code[0])**2 + (dominant_rgb[1] - code[1])**2 + (dominant_rgb[2] - code[2])**2
+            if dist < min_dist:
+                min_dist = dist
+                closest_name = name
+                
+        return closest_name
+    except:
+        return "取得失敗"
 
 def scrape_garumani():
     session = requests.Session()
@@ -45,6 +81,7 @@ def scrape_garumani():
 
     processed_data = []
     all_tags_count = {}
+    all_colors_count = {}
 
     for item in ranking_items:
         try:
@@ -91,7 +128,7 @@ def scrape_garumani():
             date_match = re.search(r'\d{4}[年/]\d{1,2}[月/]\d{1,2}', full_text)
             release_date = date_match.group().replace('年', '-').replace('月', '-').replace('/', '-') if date_match else "不明"
 
-            # タグの取得 (詳細ページへアクセスして取得)
+            # タグの取得: 個別ページには遷移せず、ランキング一覧上の .n_work_item 内から取得
             exclude_formats = {"マンガ", "ボイス・ASMR", "ゲーム", "動画", "その他", "少女マンガ", "同人誌", "CG・イラスト"}
             # ブラックリストの文字列を含むものを除外
             blacklist_words = ["ジャンル一覧", "保存した検索条件", "割引中", "クーポン", "一覧へ", "すべて見る", "ランキング"]
@@ -99,15 +136,8 @@ def scrape_garumani():
             voice_actors = set()
             
             try:
-                # 紳士的なスクレイピングのための待機 (一覧取得後も最低限待機)
-                time.sleep(1.5)
-                
-                # 個別ページへアクセス
-                detail_res = session.get(work_url, headers=headers, timeout=15)
-                detail_soup = BeautifulSoup(detail_res.content, 'html.parser')
-
-                # 個別ページ内の a[href*="/genre/"] をすべて取得
-                raw_tags_elems = detail_soup.select('a[href*="/genre/"]')
+                # 各作品のコンテナ（.n_work_item）の中にあるタグのみを取得 (サイドバー回避)
+                raw_tags_elems = item.select('a[href*="/genre/"]')
                 
                 for t_elem in raw_tags_elems:
                     t_text = t_elem.get_text(strip=True)
@@ -132,13 +162,21 @@ def scrape_garumani():
                         filtered_tags.append(clean_text)
                             
             except Exception as tag_e:
-                print(f"[DEBUG] 詳細ページからのタグ取得失敗 - ID: {work_id}, URL: {work_url}, Error: {tag_e}")
+                print(f"[DEBUG] タグ取得失敗 - ID: {work_id}, URL: {work_url}, Error: {tag_e}")
 
             unique_tags = list(set(filtered_tags))
             print(f"Work {work_id}: Found {len(unique_tags)} tags")
 
             for tag in unique_tags: # 重複を避けてカウント
                 all_tags_count[tag] = all_tags_count.get(tag, 0) + 1
+            
+            # カラー解析
+            color_category = "取得失敗"
+            thumb_url = thumb_map.get(work_id, "")
+            if thumb_url:
+                color_category = get_dominant_color_category(thumb_url, session)
+                if color_category != "取得失敗":
+                    all_colors_count[color_category] = all_colors_count.get(color_category, 0) + 1
                         
             # デバッグ情報出力
             if base_price == 0 or dl_count == 0 or not filtered_tags:
@@ -171,6 +209,11 @@ def scrape_garumani():
     tag_ranking = sorted([{"tag": k, "count": v} for k, v in all_tags_count.items()], key=lambda x: x['count'], reverse=True)[:20]
     with open('tag_ranking.json', 'w', encoding='utf-8') as f:
         json.dump(tag_ranking, f, ensure_ascii=False, indent=2)
+
+    # カラーランキングの生成
+    color_ranking = sorted([{"color": k, "count": v} for k, v in all_colors_count.items()], key=lambda x: x['count'], reverse=True)
+    with open('color_ranking.json', 'w', encoding='utf-8') as f:
+        json.dump(color_ranking, f, ensure_ascii=False, indent=2)
 
     # 履歴の更新 (読み込みエラー対策を強化)
     try:

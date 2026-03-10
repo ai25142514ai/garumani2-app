@@ -10,8 +10,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Kaisei+Decol:wght@500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
   
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <!-- WordCloud.js for visual rendering -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/wordcloud2.js/1.2.2/wordcloud2.min.js"></script>
 
   <style>
     :root {
@@ -344,12 +342,31 @@
       font-size: 12px;
       font-weight: bold;
     }
+
+    /* Retro Pixel Hearts */
+    .pixel-heart {
+      position: fixed;
+      pointer-events: none;
+      font-size: 24px;
+      animation: heartFloat 1s ease-out forwards;
+      z-index: 10000;
+      text-shadow: 2px 2px 0px #000;
+    }
+    
+    @keyframes heartFloat {
+      0% { opacity: 1; transform: translate(-50%, -50%) scale(0.5); }
+      30% { transform: translate(-50%, calc(-50% - 20px)) scale(1.2) rotate(10deg); }
+      100% { opacity: 0; transform: translate(-50%, calc(-50% - 80px)) scale(1) rotate(-10deg); }
+    }
   </style>
 </head>
 <body>
 
   <header>
-    <h1>Garumani Trend</h1>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <h1 style="margin-bottom: 0;">Garumani Trend</h1>
+      <button id="update-btn" style="background: rgba(180, 77, 255, 0.2); border: 1px solid var(--accent); color: var(--text); padding: 6px 12px; border-radius: 20px; font-weight: bold; font-size: 12px; cursor: pointer; transition: 0.3s; white-space: nowrap;" onclick="alert('最新データの取得はGitHub Actionsで自動実行されます（毎日深夜）。今すぐ更新したい場合は、リポジトリの Actions タブから「Run workflow」を手動実行してください。')">🔄 最新に更新</button>
+    </div>
     <div class="tabs">
       <button class="tab-btn active" data-target="ranking">🏆 ランキング</button>
       <button class="tab-btn" data-target="tags">🏷️ 人気タグ</button>
@@ -377,10 +394,9 @@
     </div>
 
     <div id="visual" class="tab-content">
-      <div class="chart-container" style="height: 400px; display: flex; align-items: center; justify-content: center; position: relative;">
-        <canvas id="wordCloudCanvas" style="width: 100%; height: 100%;"></canvas>
+      <div id="visual-report-container">
+        <div class="loading">AI分析レポートを生成中...</div>
       </div>
-      <p style="font-size:12px; color:var(--text-muted); text-align:center;">※今日の人気タグクラウド（大きいほど出現数多）</p>
     </div>
   </main>
 
@@ -392,12 +408,21 @@
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
         btn.classList.add('active');
         document.getElementById(btn.dataset.target).classList.add('active');
-        
-        // Re-render WordCloud if switching to visual tab to ensure correct dimensions
-        if (btn.dataset.target === 'visual' && window.currentTagData) {
-          setTimeout(() => renderWordCloud(window.currentTagData), 50);
-        }
       });
+    });
+
+    // Particle effect on click (Retro Pixel Hearts)
+    document.body.addEventListener('click', (e) => {
+      // Ignore clicks on interactive elements
+      if (e.target.tagName.toLowerCase() === 'button' || e.target.closest('a')) return;
+      
+      const heart = document.createElement('div');
+      heart.className = 'pixel-heart';
+      heart.innerText = '❤️';
+      heart.style.left = e.clientX + 'px';
+      heart.style.top = e.clientY + 'px';
+      document.body.appendChild(heart);
+      setTimeout(() => heart.remove(), 1000);
     });
 
     // Particle effect on click
@@ -419,14 +444,16 @@
     // Load Ranking Data
     async function loadData() {
       try {
-        const [rankRes, tagRes, histRes] = await Promise.all([
+        const [rankRes, tagRes, histRes, colorRes] = await Promise.all([
           fetch('ranking_data.json').catch(() => ({ok:false})),
           fetch('tag_ranking.json').catch(() => ({ok:false})),
-          fetch('ranking_history.json').catch(() => ({ok:false}))
+          fetch('ranking_history.json').catch(() => ({ok:false})),
+          fetch('color_ranking.json').catch(() => ({ok:false}))
         ]);
 
+        let rankData = [];
         if (rankRes.ok) {
-          const rankData = await rankRes.json();
+          rankData = await rankRes.json();
           renderRanking(rankData);
         } else {
           document.getElementById('ranking-container').innerHTML = '<div class="loading" style="color:#ff4d4d">データが見つかりません</div>';
@@ -434,14 +461,17 @@
 
         if (tagRes.ok) {
           const tagData = await tagRes.json();
-          window.currentTagData = tagData; // Store for re-rendering on tab switch
           renderTags(tagData);
-          renderWordCloud(tagData);
         }
 
         if (histRes.ok) {
           const histData = await histRes.json();
           renderChart(histData);
+        }
+        
+        if (colorRes.ok && rankData.length > 0) {
+          const colorData = await colorRes.json();
+          renderColorReport(colorData, rankData);
         }
       } catch (err) {
         console.error(err);
@@ -481,7 +511,7 @@
             <div class="meta">
               <span class="date">${item.date}</span>
               <span class="price">${item.price.toLocaleString()}円</span>
-              <span class="downloads">${item.dl.toLocaleString()}</span>
+              <span class="downloads">DL数: ${item.dl.toLocaleString()}</span>
             </div>
           </div>
         `;
@@ -615,38 +645,54 @@
       });
     }
 
-    function renderWordCloud(tagData) {
-      if (!tagData || tagData.length === 0) return;
+    function renderColorReport(colorData, rankData) {
+      if (!colorData || colorData.length === 0) {
+        document.getElementById('visual-report-container').innerHTML = '<div class="loading">カラーデータがありません</div>';
+        return;
+      }
       
-      const canvas = document.getElementById('wordCloudCanvas');
-      // Set intrinsic size for canvas to make wordcloud2 calculation correct
-      canvas.width = canvas.parentElement.clientWidth;
-      canvas.height = canvas.parentElement.clientHeight;
-
-      const maxCount = tagData[0].count || 1;
+      const topColor = colorData[0];
+      const secondColor = colorData.length > 1 ? colorData[1] : null;
+      const totalAnalyzed = colorData.reduce((acc, curr) => acc + curr.count, 0);
       
-      const words = tagData.map(item => {
-        // Map weight to font size between 12 and 60
-        const weight = Math.max(12, Math.floor((item.count / maxCount) * 60));
-        return [item.tag, weight];
+      const container = document.getElementById('visual-report-container');
+      let html = `<div style="text-align: center; margin-bottom: 24px;">
+        <h2 style="font-size: 18px; color: var(--accent); margin-bottom: 10px;">🤖 AIカラー解析レポート</h2>
+        <div style="background: rgba(255, 77, 166, 0.1); padding: 15px; border-radius: 8px; border: 1px solid rgba(255, 77, 166, 0.3); font-size: 14px; line-height: 1.6;">
+          ランキング画像(上位30件)の色調を分析した結果、<br>
+          現在の流行りは圧倒的に <strong style="color:var(--gold); font-size:16px;">${topColor.color}</strong>！<br>
+          ${secondColor ? `次点で <strong style="color:var(--silver);">${secondColor.color}</strong> 番組が人気を集めています。` : ''}
+        </div>
+      </div>`;
+      
+      html += '<h3 style="font-size: 15px; margin-bottom: 12px; color: var(--text-muted);">📊 カラー別シェア</h3>';
+      colorData.forEach(c => {
+         const percentage = Math.round((c.count / totalAnalyzed) * 100);
+         html += `
+         <div style="display:flex; align-items:center; margin-bottom: 10px; font-size: 13px;">
+            <span style="width: 140px;">${c.color}</span>
+            <div style="flex:1; background: rgba(255,255,255,0.1); height: 10px; border-radius: 5px; margin: 0 10px; position:relative;">
+               <div style="width: ${percentage}%; background: linear-gradient(90deg, var(--main), var(--sub)); height: 100%; border-radius: 5px;"></div>
+            </div>
+            <span style="width: 40px; text-align: right; color: var(--text-muted);">${percentage}%</span>
+         </div>`;
       });
-
-      const colors = ['#ff4da6', '#b44dff', '#ff80c8', '#c9a0dc', '#ffffff', '#ffd700', '#4dffff'];
-
-      WordCloud(canvas, {
-        list: words,
-        fontFamily: "'Noto Sans JP', sans-serif",
-        fontWeight: 'bold',
-        color: function (word, weight) {
-          return colors[Math.floor(Math.random() * colors.length)];
-        },
-        backgroundColor: 'transparent',
-        rotateRatio: 0.2,
-        rotationSteps: 2,
-        gridSize: Math.round(16 * window.innerWidth / 1024),
-        shrinkToFit: true,
-        drawOutOfBound: false
+      
+      html += '<h3 style="font-size: 15px; margin: 24px 0 12px; color: var(--text-muted);">🖼️ ガルマニトレンド代表作品</h3>';
+      html += '<div style="display:flex; gap: 12px; overflow-x: auto; padding-bottom: 15px; scrollbar-width: none;">';
+      
+      rankData.slice(0, 5).forEach(work => {
+          html += `
+          <div style="flex-shrink: 0; width: 110px; text-align: center;">
+            <a href="${work.url}" target="_blank" style="text-decoration:none;">
+              <img src="${work.thumb}" style="width: 110px; height: 110px; object-fit: cover; border-radius: 8px; border: 1px solid rgba(180,77,255,0.5);" alt="${work.title}" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\\'http://www.w3.org/2000/svg\\\' width=\\\'100%\\\' height=\\\'100%\\\'><rect width=\\\'100%\\\' height=\\\'100%\\\' fill=\\\'#2a0045\\\'/></svg>'">
+              <div style="font-size: 10px; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-muted);">${work.title}</div>
+            </a>
+          </div>`;
       });
+      html += '</div>';
+      
+      container.innerHTML = html;
     }
 
     // Init
