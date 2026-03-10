@@ -98,17 +98,20 @@ def scrape_garumani():
                 detail_res = session.get(work_url, headers=headers, timeout=15)
                 detail_soup = BeautifulSoup(detail_res.content, 'html.parser')
 
-                # ジャンル専用のコンテナのみを狙う（条件1: .main_genre内のaタグ、条件2: hrefに/genre/を含むaタグ）
-                raw_tags_elems = detail_soup.select('.main_genre a, a[href*="/genre/"]')
+                # リンク先に /genre/ が含まれるaタグをすべて取得
+                raw_tags_elems = detail_soup.select('a[href*="/genre/"]')
                 
                 for t_elem in raw_tags_elems:
                     t_text = t_elem.get_text(strip=True)
                     if not t_text: continue
                     
-                    # 不要なジャンル名、記号などを除外
+                    # 不要な記号を除外し、前後の空白を取る
                     clean_text = t_text.replace('#', '').strip()
                     
-                    # ブラックリスト確認
+                    # 先頭の数字とそれに続く不要な空白を除去 (例: "4クンニ" -> "クンニ")
+                    clean_text = re.sub(r'^\d+\s*', '', clean_text)
+                    
+                    # ブラックリスト確認（ノイズの除去）
                     if any(bw in clean_text for bw in blacklist_words):
                         continue
                         
@@ -116,13 +119,9 @@ def scrape_garumani():
                     if clean_text in voice_actors:
                         continue
                         
-                    # 先頭の数字とそれに続く不要な記号や空白を除去 (例: "4クンニ" -> "クンニ", "10 催眠" -> "催眠")
-                    clean_text = re.sub(r'^\d+\s*', '', clean_text)
-                    
+                    # 除外フォーマットに含まれておらず、空でなければ追加
                     if clean_text and clean_text not in exclude_formats:
-                        # 3文字アルファベット（'OTN', 'JPN'等）は除外、日本語か3文字以上を許容
-                        if not re.match(r'^[A-Za-z]{3}$', clean_text) or len(clean_text) > 3:
-                            filtered_tags.append(clean_text)
+                        filtered_tags.append(clean_text)
                             
             except Exception as tag_e:
                 print(f"[DEBUG] 詳細ページからのタグ取得失敗 - ID: {work_id}, URL: {work_url}, Error: {tag_e}")
