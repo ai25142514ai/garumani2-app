@@ -85,6 +85,8 @@ def scrape_garumani():
 
             # タグの取得 (詳細ページへアクセスして取得)
             exclude_formats = {"マンガ", "ボイス・ASMR", "ゲーム", "動画", "その他", "少女マンガ", "同人誌", "CG・イラスト"}
+            # ブラックリストの文字列を含むものを除外
+            blacklist_words = ["ジャンル一覧", "保存した検索条件", "割引中", "クーポン", "一覧へ", "すべて見る", "ランキング"]
             filtered_tags = []
             
             try:
@@ -94,9 +96,18 @@ def scrape_garumani():
                 # 個別ページへアクセス
                 detail_res = session.get(work_url, headers=headers, timeout=15)
                 detail_soup = BeautifulSoup(detail_res.content, 'html.parser')
+
+                # 声優のリストを取得して除外用に保持
+                voice_actors = set()
+                # 典型的な声優を列挙する要素から取得
+                va_links = detail_soup.select('th:contains("声優") + td a, th:contains("キャスト") + td a')
+                for va in va_links:
+                    va_name = va.get_text(strip=True).replace('#', '')
+                    if va_name:
+                        voice_actors.add(va_name)
                 
-                # ハッシュタグ形式のリンク、または main_genre 内のリンクを抽出
-                raw_tags_elems = detail_soup.select('.main_genre a, .search_tag a, a[href*="genre"], a[href*="keyword"]')
+                # ジャンル専用のコンテナのみを狙う
+                raw_tags_elems = detail_soup.select('.main_genre a, #work_genre a, .work_genre a, .work_right_info_tag a')
                 
                 for t_elem in raw_tags_elems:
                     t_text = t_elem.get_text(strip=True)
@@ -104,6 +115,18 @@ def scrape_garumani():
                     
                     # 不要なジャンル名、記号などを除外
                     clean_text = t_text.replace('#', '').strip()
+                    
+                    # ブラックリスト確認
+                    if any(bw in clean_text for bw in blacklist_words):
+                        continue
+                        
+                    # 声優名ならスキップ
+                    if clean_text in voice_actors:
+                        continue
+                        
+                    # 先頭の数字とそれに続く不要な記号や空白を除去 (例: "4クンニ" -> "クンニ", "10 催眠" -> "催眠")
+                    clean_text = re.sub(r'^\d+\s*', '', clean_text)
+                    
                     if clean_text and clean_text not in exclude_formats:
                         # 3文字アルファベット（'OTN', 'JPN'等）は除外、日本語か3文字以上を許容
                         if not re.match(r'^[A-Za-z]{3}$', clean_text) or len(clean_text) > 3:
