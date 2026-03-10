@@ -8,7 +8,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Kaisei+Decol:wght@500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
-  
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <style>
@@ -41,11 +40,27 @@
       content: '';
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
-      background-image: linear-gradient(rgba(180, 77, 255, 0.04) 1px, transparent 1px),
-                        linear-gradient(90deg, rgba(180, 77, 255, 0.04) 1px, transparent 1px);
+      background-image:
+        linear-gradient(rgba(180, 77, 255, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(180, 77, 255, 0.04) 1px, transparent 1px);
       background-size: 20px 20px;
       z-index: -1;
       pointer-events: none;
+    }
+
+    /* ========================================================
+       ドット絵ハート — position:fixed + z-index最前面
+       【バグ修正】旧版は e.pageY を使用していたためスクロール時に
+       ハートがヘッダー下で消えていた。
+       canvas を fixed にして clientX/Y を使うことで全画面に表示。
+       ======================================================== */
+    #heart-canvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 99999;
     }
 
     header {
@@ -68,7 +83,6 @@
       letter-spacing: 2px;
     }
 
-    /* Tabs */
     .tabs {
       display: flex;
       justify-content: space-around;
@@ -76,7 +90,6 @@
       padding: 0 4px;
       overflow-x: auto;
       scrollbar-width: none;
-      -ms-overflow-style: none;
     }
     .tabs::-webkit-scrollbar { display: none; }
 
@@ -92,7 +105,6 @@
       white-space: nowrap;
       transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
-
     .tab-btn.active {
       background: linear-gradient(135deg, var(--main), var(--sub));
       color: #fff;
@@ -101,24 +113,16 @@
       transform: scale(1.05);
     }
 
-    .tab-content {
-      display: none;
-      padding: 20px 16px;
-      animation: fadeUp 0.4s ease forwards;
-    }
+    .tab-content { display: none; padding: 20px 16px; animation: fadeUp 0.4s ease forwards; }
     .tab-content.active { display: block; }
 
     @keyframes fadeUp {
       from { opacity: 0; transform: translateY(15px); }
-      to { opacity: 1; transform: translateY(0); }
+      to   { opacity: 1; transform: translateY(0); }
     }
 
-    /* Cards */
-    .ranking-list {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
+    /* ---- ランキングカード ---- */
+    .ranking-list { display: flex; flex-direction: column; gap: 16px; }
 
     .card {
       background: var(--card-bg);
@@ -134,238 +138,147 @@
       overflow: hidden;
       cursor: pointer;
     }
-
     .card:hover {
       box-shadow: 0 0 20px rgba(255, 77, 166, 0.2), inset 0 0 10px rgba(180, 77, 255, 0.1);
       border-color: rgba(255, 77, 166, 0.5);
       transform: translateY(-2px);
     }
-
     .card.rank-1 { border-color: var(--gold); }
     .card.rank-2 { border-color: var(--silver); }
     .card.rank-3 { border-color: var(--bronze); }
-
     .card.rank-1::after {
       content: '';
-      position: absolute;
-      inset: 0;
+      position: absolute; inset: 0;
       border-radius: 12px;
       box-shadow: 0 0 15px var(--gold) inset;
       animation: pulseGold 2s infinite alternate;
       pointer-events: none;
     }
-
     @keyframes pulseGold {
       from { opacity: 0.3; }
-      to { opacity: 0.8; box-shadow: 0 0 25px var(--gold) inset; }
+      to   { opacity: 0.8; box-shadow: 0 0 25px var(--gold) inset; }
     }
 
     .rank-badge {
-      position: absolute;
-      top: -6px;
-      left: -6px;
-      width: 32px;
-      height: 32px;
+      position: absolute; top: -6px; left: -6px;
+      width: 32px; height: 32px;
       border-radius: 50%;
       background: var(--bg);
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: flex; align-items: center; justify-content: center;
       font-family: 'Kaisei Decol', serif;
-      font-weight: bold;
-      font-size: 16px;
+      font-weight: bold; font-size: 16px;
       border: 2px solid var(--text-muted);
       z-index: 2;
     }
+    .rank-1 .rank-badge { background: linear-gradient(135deg,#fff,var(--gold));   color:#000; border-color:var(--gold); }
+    .rank-2 .rank-badge { background: linear-gradient(135deg,#fff,var(--silver)); color:#000; border-color:var(--silver); }
+    .rank-3 .rank-badge { background: linear-gradient(135deg,#fcd0b4,var(--bronze)); color:#000; border-color:var(--bronze); }
 
-    .rank-1 .rank-badge { background: linear-gradient(135deg, #fff, var(--gold)); color: #000; border-color: var(--gold); }
-    .rank-2 .rank-badge { background: linear-gradient(135deg, #fff, var(--silver)); color: #000; border-color: var(--silver); }
-    .rank-3 .rank-badge { background: linear-gradient(135deg, #fcd0b4, var(--bronze)); color: #000; border-color: var(--bronze); }
+    .thumb-wrapper { width:90px; height:90px; border-radius:8px; overflow:hidden; flex-shrink:0; background:rgba(0,0,0,.5); }
+    .thumb-wrapper img { width:100%; height:100%; object-fit:contain; }
 
-    .thumb-wrapper {
-      width: 90px;
-      height: 90px;
-      border-radius: 8px;
-      overflow: hidden;
-      flex-shrink: 0;
-      background: rgba(0,0,0,0.5);
+    .card-info { flex:1; display:flex; flex-direction:column; justify-content:center; min-width:0; }
+    .card-title {
+      font-size: 14px; font-weight: 700; line-height: 1.4; margin-bottom: 4px;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
     }
+    .card-circle { font-size:11px; color:var(--accent); margin-bottom:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
-    .thumb-wrapper img {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-    }
-
-    .card-info {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      min-width: 0;
-    }
-
-    .title {
-      font-size: 14px;
-      font-weight: 700;
-      line-height: 1.4;
-      margin-bottom: 4px;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
-
-    .circle {
-      font-size: 11px;
-      color: var(--accent);
-      margin-bottom: 6px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .tags {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-      margin-bottom: 8px;
-    }
-
+    .tags { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px; }
     .tag {
-      font-size: 10px;
-      background: rgba(180, 77, 255, 0.2);
-      color: var(--text);
-      padding: 2px 6px;
-      border-radius: 10px;
-      border: 1px solid rgba(180, 77, 255, 0.4);
+      font-size:10px; background:rgba(180,77,255,.2); color:var(--text);
+      padding:2px 6px; border-radius:10px; border:1px solid rgba(180,77,255,.4);
     }
 
-    .meta {
-      display: flex;
-      justify-content: space-between;
-      font-size: 11px;
-      color: var(--text-muted);
-      margin-top: auto;
-    }
+    .meta { display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); margin-top:auto; }
+    .price { color:#fff; font-weight:bold; }
+    .downloads::before { content:'⬇'; margin-right:2px; color:var(--main); }
 
-    .price { color: #fff; font-weight: bold; }
-    .downloads::before { content: '⬇'; margin-right: 2px; color: var(--main); }
-
-    /* Tag Ranking */
-    .tag-bar-item {
-      margin-bottom: 12px;
-    }
-    .tag-bar-label {
-      display: flex;
-      justify-content: space-between;
-      font-size: 13px;
-      margin-bottom: 4px;
-    }
-    .tag-bar-bg {
-      height: 8px;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 4px;
-      overflow: hidden;
-    }
+    /* ---- タグバー ---- */
+    .tag-bar-item { margin-bottom:12px; }
+    .tag-bar-label { display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px; }
+    .tag-bar-bg { height:8px; background:rgba(255,255,255,.1); border-radius:4px; overflow:hidden; }
     .tag-bar-fill {
-      height: 100%;
-      background: linear-gradient(90deg, var(--main), var(--sub));
-      border-radius: 4px;
-      transition: width 1s ease-out;
-      box-shadow: 0 0 8px var(--main);
+      height:100%; background:linear-gradient(90deg,var(--main),var(--sub));
+      border-radius:4px; transition:width 1s ease-out; box-shadow:0 0 8px var(--main);
     }
 
-    /* Particles */
-    .particle {
-      position: fixed;
-      pointer-events: none;
-      animation: particleFly 1s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-      z-index: 9999;
-      font-size: 16px;
-      opacity: 0;
-    }
-
-    @keyframes particleFly {
-      0% { opacity: 1; transform: translate(0, 0) scale(0.5); }
-      100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(1.5) rotate(20deg); }
-    }
-
-    .loading {
-      text-align: center;
-      padding: 40px;
-      color: var(--accent);
-      font-family: 'Kaisei Decol', serif;
-      animation: pulse 1.5s infinite;
-    }
-
-    @keyframes pulse {
-      0% { opacity: 0.6; }
-      50% { opacity: 1; text-shadow: 0 0 10px var(--main); }
-      100% { opacity: 0.6; }
-    }
-
-    /* Chart Container */
+    /* ---- チャート ---- */
     .chart-container {
       background: var(--card-bg);
       border-radius: 12px;
       padding: 16px;
-      border: 1px solid rgba(180, 77, 255, 0.2);
-      box-shadow: 0 0 15px rgba(0,0,0,0.5);
+      border: 1px solid rgba(180,77,255,.2);
+      box-shadow: 0 0 15px rgba(0,0,0,.5);
       margin-bottom: 20px;
+      /* 【バグ修正】高さを明示しないとChart.jsが0pxに縮む */
+      height: 260px;
+      position: relative;
+    }
+    #historyChart { width:100% !important; height:100% !important; }
+
+    /* ---- ビジュアルタブ ---- */
+    .color-bar-item { display:flex; align-items:center; margin-bottom:10px; font-size:13px; }
+    .color-bar-inner {
+      flex:1; background:rgba(255,255,255,.1); height:10px;
+      border-radius:5px; margin:0 10px; position:relative; overflow:hidden;
+    }
+    .color-bar-fill {
+      height:100%; background:linear-gradient(90deg,var(--main),var(--sub));
+      border-radius:5px; transition:width 1s ease-out;
+    }
+    .color-name { width:140px; }
+    .color-pct  { width:36px; text-align:right; color:var(--text-muted); }
+
+    .thumb-row { display:flex; gap:12px; overflow-x:auto; padding-bottom:15px; scrollbar-width:none; }
+    .thumb-row::-webkit-scrollbar { display:none; }
+    .thumb-item { flex-shrink:0; width:110px; text-align:center; }
+    .thumb-item img {
+      width:110px; height:110px; object-fit:cover;
+      border-radius:8px; border:1px solid rgba(180,77,255,.5);
+    }
+    .thumb-item-title { font-size:10px; margin-top:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text-muted); }
+
+    .loading { text-align:center; padding:40px; color:var(--accent); font-family:'Kaisei Decol',serif; animation:pulse 1.5s infinite; }
+    @keyframes pulse {
+      0%  { opacity:.6; }
+      50% { opacity:1; text-shadow:0 0 10px var(--main); }
+      100%{ opacity:.6; }
     }
 
-    /* Visual Trend Placeholder */
-    .placeholder-box {
-      border: 2px dashed rgba(180, 77, 255, 0.4);
-      border-radius: 16px;
-      padding: 40px 20px;
-      text-align: center;
-      background: rgba(26, 0, 37, 0.4);
+    /* ---- パーティクル（旧との互換用、今回は canvas に統合） ---- */
+    .particle {
+      position:fixed;
+      pointer-events:none;
+      animation:particleFly 1s cubic-bezier(.2,.8,.2,1) forwards;
+      z-index:9998;
+      font-size:16px;
+      opacity:0;
     }
-    .placeholder-icon {
-      font-size: 40px;
-      margin-bottom: 16px;
-      text-shadow: 0 0 15px var(--main);
-    }
-    .placeholder-text {
-      font-size: 14px;
-      line-height: 1.6;
-      color: var(--text-muted);
-    }
-    .placeholder-badge {
-      display: inline-block;
-      margin-top: 16px;
-      padding: 4px 12px;
-      background: linear-gradient(90deg, var(--main), var(--sub));
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: bold;
-    }
-
-    /* Retro Pixel Hearts */
-    .pixel-heart {
-      position: fixed;
-      pointer-events: none;
-      font-size: 24px;
-      animation: heartFloat 1s ease-out forwards;
-      z-index: 10000;
-      text-shadow: 2px 2px 0px #000;
-    }
-    
-    @keyframes heartFloat {
-      0% { opacity: 1; transform: translate(-50%, -50%) scale(0.5); }
-      30% { transform: translate(-50%, calc(-50% - 20px)) scale(1.2) rotate(10deg); }
-      100% { opacity: 0; transform: translate(-50%, calc(-50% - 80px)) scale(1) rotate(-10deg); }
+    @keyframes particleFly {
+      0%  { opacity:1; transform:translate(0,0) scale(.5); }
+      100%{ opacity:0; transform:translate(var(--tx),var(--ty)) scale(1.5) rotate(20deg); }
     }
   </style>
 </head>
 <body>
 
+  <!-- ========================================================
+       ドット絵ハートキャンバス
+       position:fixed / z-index:99999 で全画面最前面に固定。
+       クリック座標は clientX/Y（ビューポート基準）を使用。
+       ======================================================== -->
+  <canvas id="heart-canvas"></canvas>
+
   <header>
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-      <h1 style="margin-bottom: 0;">Garumani Trend</h1>
-      <button id="update-btn" style="background: rgba(180, 77, 255, 0.2); border: 1px solid var(--accent); color: var(--text); padding: 6px 12px; border-radius: 20px; font-weight: bold; font-size: 12px; cursor: pointer; transition: 0.3s; white-space: nowrap;" onclick="alert('最新データの取得はGitHub Actionsで自動実行されます（毎日深夜）。今すぐ更新したい場合は、リポジトリの Actions タブから「Run workflow」を手動実行してください。')">🔄 最新に更新</button>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h1 style="margin-bottom:0;">Garumani Trend</h1>
+      <button id="update-btn"
+        style="background:rgba(180,77,255,.2);border:1px solid var(--accent);color:var(--text);
+               padding:6px 12px;border-radius:20px;font-weight:bold;font-size:12px;
+               cursor:pointer;transition:.3s;white-space:nowrap;">
+        🔄 最新に更新
+      </button>
     </div>
     <div class="tabs">
       <button class="tab-btn active" data-target="ranking">🏆 ランキング</button>
@@ -381,325 +294,407 @@
         <div class="loading">データを読み込み中...</div>
       </div>
     </div>
-
     <div id="tags" class="tab-content">
       <div id="tags-container"></div>
     </div>
-
     <div id="graph" class="tab-content">
       <div class="chart-container">
         <canvas id="historyChart"></canvas>
       </div>
-      <p style="font-size:12px; color:var(--text-muted); text-align:center;">※過去90日間の特定タグラインキング推移</p>
+      <p style="font-size:12px;color:var(--text-muted);text-align:center;">※ 上位5作品のDL数推移（過去90日）</p>
     </div>
-
     <div id="visual" class="tab-content">
       <div id="visual-report-container">
-        <div class="loading">AI分析レポートを生成中...</div>
+        <div class="loading">カラーレポートを読み込み中...</div>
       </div>
     </div>
   </main>
 
-  <script>
-    // Tab switching logic
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-        btn.classList.add('active');
-        document.getElementById(btn.dataset.target).classList.add('active');
+<script>
+/* ============================================================
+   ドット絵ハート演出
+   【修正点】
+   - canvas を position:fixed で全画面に張る
+   - クリック座標は e.clientX / e.clientY（ビューポート基準）
+   - イベントは document に付与（ヘッダー上でも動作）
+   ============================================================ */
+(function () {
+  const canvas = document.getElementById('heart-canvas');
+  const ctx    = canvas.getContext('2d');
+
+  // 5×7 ドット絵ハートマスク
+  const MASK = [
+    [0,1,1,0,1,1,0],
+    [1,1,1,1,1,1,1],
+    [1,1,1,1,1,1,1],
+    [0,1,1,1,1,1,0],
+    [0,0,1,1,1,0,0],
+    [0,0,0,1,0,0,0],
+  ];
+  const COLORS  = ['#ff4da6','#ff80c8','#b44dff','#ffd700','#00f0ff'];
+  const PIXEL   = 4;
+  let   particles = [];
+
+  function resize() {
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  function spawn(cx, cy) {
+    const n = 2 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) {
+      particles.push({
+        x:       cx,
+        y:       cy,
+        color:   COLORS[Math.floor(Math.random() * COLORS.length)],
+        scale:   0.7 + Math.random() * 1.0,
+        vx:      (Math.random() - 0.5) * 1.5,
+        vy:      -(1.5 + Math.random() * 2),
+        alpha:   1,
+        life:    0,
+        maxLife: 50 + Math.random() * 30,
       });
-    });
+    }
+  }
 
-    // Particle effect on click (Retro Pixel Hearts)
-    document.addEventListener('click', (e) => {
-      // Ignore clicks on interactive elements
-      if (e.target.tagName.toLowerCase() === 'button' || e.target.closest('a')) return;
-      
-      const heart = document.createElement('div');
-      heart.className = 'pixel-heart';
-      heart.innerText = '❤️';
-      heart.style.left = e.pageX + 'px';
-      heart.style.top = e.pageY + 'px';
-      document.body.appendChild(heart);
-      setTimeout(() => heart.remove(), 1000);
-    });
-
-    // Particle effect on click
-    function spawnParticles(e) {
-      const icons = ['💗', '✨', '⭐', '💎'];
-      for (let i = 0; i < 6; i++) {
-        const p = document.createElement('div');
-        p.innerText = icons[Math.floor(Math.random() * icons.length)];
-        p.className = 'particle';
-        p.style.left = e.clientX + 'px';
-        p.style.top = e.clientY + 'px';
-        p.style.setProperty('--tx', (Math.random() * 100 - 50) + 'px');
-        p.style.setProperty('--ty', (-100 - Math.random() * 100) + 'px');
-        document.body.appendChild(p);
-        setTimeout(() => p.remove(), 1000);
+  function drawHeart(p) {
+    const ps = PIXEL * p.scale;
+    ctx.globalAlpha = p.alpha;
+    ctx.fillStyle   = p.color;
+    for (let r = 0; r < MASK.length; r++) {
+      for (let c = 0; c < MASK[r].length; c++) {
+        if (MASK[r][c]) {
+          ctx.fillRect(
+            Math.round(p.x + (c - 3) * ps),
+            Math.round(p.y + (r - 3) * ps),
+            Math.ceil(ps), Math.ceil(ps)
+          );
+        }
       }
     }
+    ctx.globalAlpha = 1;
+  }
 
-    // Load Ranking Data
-    async function loadData() {
-      try {
-        const [rankRes, tagRes, histRes, colorRes] = await Promise.all([
-          fetch('ranking_data.json').catch(() => ({ok:false})),
-          fetch('tag_ranking.json').catch(() => ({ok:false})),
-          fetch('ranking_history.json').catch(() => ({ok:false})),
-          fetch('color_ranking.json').catch(() => ({ok:false}))
-        ]);
+  function loop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    particles = particles.filter(p => p.life < p.maxLife);
+    for (const p of particles) {
+      p.x   += p.vx;
+      p.y   += p.vy;
+      p.vy  += 0.05;
+      p.life++;
+      p.alpha = 1 - p.life / p.maxLife;
+      drawHeart(p);
+    }
+    requestAnimationFrame(loop);
+  }
+  loop();
 
-        let rankData = [];
-        if (rankRes.ok) {
-          rankData = await rankRes.json();
-          renderRanking(rankData);
-        } else {
-          document.getElementById('ranking-container').innerHTML = '<div class="loading" style="color:#ff4d4d">データが見つかりません</div>';
-        }
+  // document に付与 → ヘッダー上でもハート出る
+  document.addEventListener('click', e => {
+    // ボタンクリックはハート不要
+    if (e.target.closest('button') || e.target.closest('a')) return;
+    spawn(e.clientX, e.clientY);   // ← clientX/Y（ビューポート基準）
+  });
+  document.addEventListener('touchstart', e => {
+    for (const t of e.changedTouches) spawn(t.clientX, t.clientY);
+  }, { passive: true });
+})();
 
-        if (tagRes.ok) {
-          const tagData = await tagRes.json();
-          renderTags(tagData);
-        }
+/* ============================================================
+   パーティクル（旧互換）
+   ============================================================ */
+function spawnParticles(e) {
+  const icons = ['💗', '✨', '⭐', '💎'];
+  for (let i = 0; i < 5; i++) {
+    const p = document.createElement('div');
+    p.innerText   = icons[Math.floor(Math.random() * icons.length)];
+    p.className   = 'particle';
+    p.style.left  = e.clientX + 'px';
+    p.style.top   = e.clientY + 'px';
+    p.style.setProperty('--tx', (Math.random()*100-50)+'px');
+    p.style.setProperty('--ty', (-80-Math.random()*80)+'px');
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 1000);
+  }
+}
 
-        if (histRes.ok) {
-          const histData = await histRes.json();
-          renderChart(histData);
-        }
-        
-        if (colorRes.ok && rankData.length > 0) {
-          const colorData = await colorRes.json();
-          renderColorReport(colorData, rankData);
-        }
-      } catch (err) {
-        console.error(err);
-      }
+/* ============================================================
+   タブ切り替え
+   ============================================================ */
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.target).classList.add('active');
+  });
+});
+
+/* ============================================================
+   更新ボタン
+   ============================================================ */
+document.getElementById('update-btn').addEventListener('click', () => {
+  alert(
+    '最新データの取得は GitHub Actions で自動実行されます（毎日深夜）。\n\n' +
+    '今すぐ更新したい場合は：\n' +
+    'リポジトリ → Actions タブ → "DLsite Garumani Scraper" → "Run workflow" を手動実行してください。'
+  );
+});
+
+/* ============================================================
+   データ読み込み
+   ============================================================ */
+const BUST = '?t=' + Date.now();
+let historyChart = null;
+
+async function loadData() {
+  try {
+    const [rankRes, tagRes, histRes, colorRes] = await Promise.all([
+      fetch('ranking_data.json'   + BUST).catch(() => ({ ok: false })),
+      fetch('tag_ranking.json'    + BUST).catch(() => ({ ok: false })),
+      fetch('ranking_history.json'+ BUST).catch(() => ({ ok: false })),
+      fetch('color_ranking.json'  + BUST).catch(() => ({ ok: false })),
+    ]);
+
+    let rankData = [];
+    if (rankRes.ok) {
+      rankData = await rankRes.json();
+      renderRanking(rankData);
+    } else {
+      document.getElementById('ranking-container').innerHTML =
+        '<div class="loading" style="color:#ff4d4d">データが見つかりません</div>';
     }
 
-    function renderRanking(data) {
-      const container = document.getElementById('ranking-container');
-      container.innerHTML = '';
-      
-      if (!data || data.length === 0) {
-        container.innerHTML = '<div class="loading">データが空です</div>';
-        return;
-      }
+    if (tagRes.ok)   renderTags(await tagRes.json());
+    if (histRes.ok)  renderChart(await histRes.json());
+    if (colorRes.ok && rankData.length > 0) renderColorReport(await colorRes.json(), rankData);
 
-      data.forEach(item => {
-        const a = document.createElement('a');
-        a.href = item.url;
-        a.target = '_blank';
-        a.className = `card rank-${item.rank}`;
-        
-        a.addEventListener('click', (e) => {
-          spawnParticles(e);
-        });
+  } catch (err) {
+    console.error(err);
+  }
+}
 
-        const tagsHtml = item.tags.slice(0, 4).map(t => `<span class="tag">${t}</span>`).join('');
-        
-        a.innerHTML = `
-          <div class="rank-badge">${item.rank}</div>
-          <div class="thumb-wrapper">
-            <img src="${item.thumb}" alt="thumbnail" loading="lazy" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\\'http://www.w3.org/2000/svg\\\' width=\\\'100%\\\' height=\\\'100%\\\'><rect width=\\\'100%\\\' height=\\\'100%\\\' fill=\\\'#2a0045\\\'/><text x=\\\'50%\\\' y=\\\'50%\\\' font-family=\\\'sans-serif\\\' font-size=\\\'12\\\' fill=\\\'#ff80c8\\\' text-anchor=\\\'middle\\\' dy=\\\'.3em\\\'>NO IMAGE</text></svg>'" />
-          </div>
-          <div class="card-info">
-            <div class="title">${item.title}</div>
-            <div class="circle">${item.circle}</div>
-            <div class="tags">${tagsHtml}</div>
-            <div class="meta">
-              <span class="date">${item.date}</span>
-              <span class="price">${item.price.toLocaleString()}円</span>
-              <span class="downloads">DL数: ${item.dl.toLocaleString()}</span>
-            </div>
-          </div>
-        `;
-        container.appendChild(a);
-      });
-    }
+/* ============================================================
+   ランキング描画
+   ============================================================ */
+function renderRanking(data) {
+  const container = document.getElementById('ranking-container');
+  container.innerHTML = '';
+  if (!data || !data.length) {
+    container.innerHTML = '<div class="loading">データが空です</div>';
+    return;
+  }
+  data.forEach(item => {
+    const a = document.createElement('a');
+    a.href      = item.url;
+    a.target    = '_blank';
+    a.className = `card rank-${item.rank}`;
+    a.addEventListener('click', spawnParticles);
 
-    function renderTags(data) {
-      const container = document.getElementById('tags-container');
-      container.innerHTML = '';
-      
-      if (!data || data.length === 0) return;
-      
-      const maxCount = data[0].count || 1;
-      
-      data.forEach(item => {
-        const percentage = Math.max(5, (item.count / maxCount) * 100);
-        const div = document.createElement('div');
-        div.className = 'tag-bar-item';
-        div.innerHTML = `
-          <div class="tag-bar-label">
-            <span>${item.tag}</span>
-            <span style="color:var(--main)">${item.count}</span>
-          </div>
-          <div class="tag-bar-bg">
-            <div class="tag-bar-fill" style="width: 0%"></div>
-          </div>
-        `;
-        container.appendChild(div);
-        
-        // Animate bar
-        setTimeout(() => {
-          div.querySelector('.tag-bar-fill').style.width = `${percentage}%`;
-        }, 100);
-      });
-    }
+    const tagsHtml = (item.tags || []).slice(0, 4)
+      .map(t => `<span class="tag">${t}</span>`).join('');
 
-    function renderChart(historyData) {
-      if (!historyData || Object.keys(historyData).length === 0) return;
+    // dl フィールド（Antigravity互換）
+    const dlVal = item.dl || item.dl_count || 0;
 
-      // Extract top tags from the latest day to track
-      const dates = Object.keys(historyData).sort();
-      const latestData = historyData[dates[dates.length - 1]];
-      
-      if(!latestData) return;
-
-      let latestTagCounts = {};
-      latestData.forEach(item => {
-        item.tags.forEach(t => {
-          latestTagCounts[t] = (latestTagCounts[t] || 0) + 1;
-        });
-      });
-      
-      const topTags = Object.entries(latestTagCounts)
-        .sort((a,b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(t => t[0]);
-
-      // Organize datasets
-      const colors = ['#ff4da6', '#b44dff', '#4dffff', '#ffb44d', '#ff4d4d', '#4dffb4', '#ffff4d', '#4d4dff'];
-      
-      const datasets = topTags.map((tag, i) => {
-        const counts = dates.map(date => {
-          const dayItems = historyData[date];
-          let count = 0;
-          dayItems.forEach(item => {
-            if(item.tags.includes(tag)) count++;
-          });
-          return count;
-        });
-        
-        return {
-          label: tag,
-          data: counts,
-          borderColor: colors[i % colors.length],
-          backgroundColor: colors[i % colors.length] + '40',
-          tension: 0.4,
-          borderWidth: 2,
-          pointRadius: counts.length === 1 ? 6 : 3, // Make point larger if only 1 day of data
-          pointHoverRadius: 8,
-          spanGaps: true
-        };
-      });
-
-      const ctx = document.getElementById('historyChart').getContext('2d');
-      Chart.defaults.color = '#c9a0dc';
-      Chart.defaults.font.family = "'Noto Sans JP', sans-serif";
-
-      new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: dates.map(d => d.slice(5)), // MM-DD
-          datasets: datasets
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          interaction: {
-            mode: 'index',
-            intersect: false,
-          },
-          plugins: {
-            legend: {
-              position: 'bottom',
-              labels: {
-                usePointStyle: true,
-                padding: 15
-              }
-            },
-            tooltip: {
-              backgroundColor: 'rgba(26, 0, 37, 0.9)',
-              titleColor: '#fff',
-              bodyColor: '#f0e0ff',
-              borderColor: 'rgba(255, 77, 166, 0.5)',
-              borderWidth: 1,
-              padding: 10
-            }
-          },
-          scales: {
-            x: {
-              grid: { color: 'rgba(255, 255, 255, 0.05)' },
-              ticks: { maxTicksLimit: 7 },
-              offset: true // Ensure single point is centered
-            },
-            y: {
-              beginAtZero: true,
-              min: 0,
-              suggestedMax: 10, // Ensure there is a visible scale even with small numbers or 1 point
-              grid: { color: 'rgba(255, 255, 255, 0.1)' },
-              ticks: { stepSize: 1 }
-            }
-          }
-        }
-      });
-    }
-
-    function renderColorReport(colorData, rankData) {
-      if (!colorData || colorData.length === 0) {
-        document.getElementById('visual-report-container').innerHTML = '<div class="loading">カラーデータがありません</div>';
-        return;
-      }
-      
-      const topColor = colorData[0];
-      const secondColor = colorData.length > 1 ? colorData[1] : null;
-      const totalAnalyzed = colorData.reduce((acc, curr) => acc + curr.count, 0);
-      
-      const container = document.getElementById('visual-report-container');
-      let html = `<div style="text-align: center; margin-bottom: 24px;">
-        <h2 style="font-size: 18px; color: var(--accent); margin-bottom: 10px;">🤖 AIカラー解析レポート</h2>
-        <div style="background: rgba(255, 77, 166, 0.1); padding: 15px; border-radius: 8px; border: 1px solid rgba(255, 77, 166, 0.3); font-size: 14px; line-height: 1.6;">
-          ランキング画像(上位30件)の色調を分析した結果、<br>
-          現在の流行りは圧倒的に <strong style="color:var(--gold); font-size:16px;">${topColor.color}</strong>！<br>
-          ${secondColor ? `次点で <strong style="color:var(--silver);">${secondColor.color}</strong> 番組が人気を集めています。` : ''}
+    a.innerHTML = `
+      <div class="rank-badge">${item.rank}</div>
+      <div class="thumb-wrapper">
+        <img src="${item.thumb}" alt="thumbnail" loading="lazy"
+          onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%25%22 height=%22100%25%22><rect width=%22100%25%22 height=%22100%25%22 fill=%22%232a0045%22/><text x=%2250%25%22 y=%2250%25%22 font-family=%22sans-serif%22 font-size=%2212%22 fill=%22%23ff80c8%22 text-anchor=%22middle%22 dy=%22.3em%22>NO IMAGE</text></svg>'">
+      </div>
+      <div class="card-info">
+        <div class="card-title">${item.title}</div>
+        <div class="card-circle">${item.circle}</div>
+        <div class="tags">${tagsHtml}</div>
+        <div class="meta">
+          <span class="date">${item.date || ''}</span>
+          <span class="price">${(item.price||0).toLocaleString()}円</span>
+          <span class="downloads">DL: ${dlVal.toLocaleString()}</span>
         </div>
       </div>`;
-      
-      html += '<h3 style="font-size: 15px; margin-bottom: 12px; color: var(--text-muted);">📊 カラー別シェア</h3>';
-      colorData.forEach(c => {
-         const percentage = Math.round((c.count / totalAnalyzed) * 100);
-         html += `
-         <div style="display:flex; align-items:center; margin-bottom: 10px; font-size: 13px;">
-            <span style="width: 140px;">${c.color}</span>
-            <div style="flex:1; background: rgba(255,255,255,0.1); height: 10px; border-radius: 5px; margin: 0 10px; position:relative;">
-               <div style="width: ${percentage}%; background: linear-gradient(90deg, var(--main), var(--sub)); height: 100%; border-radius: 5px;"></div>
-            </div>
-            <span style="width: 40px; text-align: right; color: var(--text-muted);">${percentage}%</span>
-         </div>`;
-      });
-      
-      html += '<h3 style="font-size: 15px; margin: 24px 0 12px; color: var(--text-muted);">🖼️ ガルマニトレンド代表作品</h3>';
-      html += '<div style="display:flex; gap: 12px; overflow-x: auto; padding-bottom: 15px; scrollbar-width: none;">';
-      
-      rankData.slice(0, 5).forEach(work => {
-          html += `
-          <div style="flex-shrink: 0; width: 110px; text-align: center;">
-            <a href="${work.url}" target="_blank" style="text-decoration:none;">
-              <img src="${work.thumb}" style="width: 110px; height: 110px; object-fit: cover; border-radius: 8px; border: 1px solid rgba(180,77,255,0.5);" alt="${work.title}" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\\'http://www.w3.org/2000/svg\\\' width=\\\'100%\\\' height=\\\'100%\\\'><rect width=\\\'100%\\\' height=\\\'100%\\\' fill=\\\'#2a0045\\\'/></svg>'">
-              <div style="font-size: 10px; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-muted);">${work.title}</div>
-            </a>
-          </div>`;
-      });
-      html += '</div>';
-      
-      container.innerHTML = html;
-    }
+    container.appendChild(a);
+  });
+}
 
-    // Init
-    loadData();
-  </script>
+/* ============================================================
+   タグランキング描画
+   ============================================================ */
+function renderTags(data) {
+  const container = document.getElementById('tags-container');
+  container.innerHTML = '';
+  if (!data || !data.length) return;
+  const maxCount = data[0].count || 1;
+  data.forEach(item => {
+    const pct = Math.max(5, (item.count / maxCount) * 100);
+    const div = document.createElement('div');
+    div.className = 'tag-bar-item';
+    div.innerHTML = `
+      <div class="tag-bar-label">
+        <span>${item.tag}</span>
+        <span style="color:var(--main)">${item.count}</span>
+      </div>
+      <div class="tag-bar-bg">
+        <div class="tag-bar-fill" style="width:0%"></div>
+      </div>`;
+    container.appendChild(div);
+    setTimeout(() => { div.querySelector('.tag-bar-fill').style.width = pct + '%'; }, 100);
+  });
+}
+
+/* ============================================================
+   履歴チャート描画
+   【修正点】
+   - ranking_history.json は [{date, data:[]}] の配列形式
+   - 上位5作品の dl（DL数）を時系列で追う
+   - データが1点だけでもエラーにならず中央にドットを表示
+   ============================================================ */
+function renderChart(historyArr) {
+  // 入力チェック（配列であることを確認）
+  if (!Array.isArray(historyArr) || !historyArr.length) return;
+
+  // 日付順にソート
+  const sorted = [...historyArr].sort((a, b) =>
+    (a.date || '').localeCompare(b.date || '')
+  );
+
+  const labels = sorted.map(h => (h.date || '').slice(5)); // MM-DD
+
+  // 最新日の上位5作品IDを取得
+  const latest   = sorted[sorted.length - 1];
+  const top5     = (latest.data || []).slice(0, 5);
+  const PALETTE  = ['#ff4da6','#b44dff','#4dffff','#ffb44d','#88ff44'];
+
+  const datasets = top5.map((work, i) => {
+    const data = sorted.map(h => {
+      const found = (h.data || []).find(w => w.id === work.id);
+      return found ? (found.dl || found.dl_count || 0) : null;
+    });
+    return {
+      label:            (work.title || work.id).slice(0, 12) + '…',
+      data,
+      borderColor:      PALETTE[i],
+      backgroundColor:  PALETTE[i] + '33',
+      tension:          0.4,
+      fill:             false,
+      // 【バグ修正】1点だけでも見えるよう pointRadius を大きくする
+      pointRadius:      data.filter(v => v !== null).length <= 1 ? 8 : 3,
+      pointHoverRadius: 10,
+      spanGaps:         true,   // null を跨いで線を繋ぐ
+    };
+  });
+
+  if (historyChart) { historyChart.destroy(); historyChart = null; }
+
+  Chart.defaults.color       = '#c9a0dc';
+  Chart.defaults.font.family = "'Noto Sans JP', sans-serif";
+
+  const ctx = document.getElementById('historyChart').getContext('2d');
+  historyChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive:          true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { usePointStyle: true, padding: 12, font: { size: 10 } }
+        },
+        tooltip: {
+          backgroundColor: 'rgba(26,0,37,.9)',
+          titleColor:      '#fff',
+          bodyColor:       '#f0e0ff',
+          borderColor:     'rgba(255,77,166,.5)',
+          borderWidth:     1,
+          padding:         10,
+          callbacks: {
+            label: ctx => `${ctx.dataset.label}: ${(ctx.parsed.y ?? 0).toLocaleString()} DL`
+          }
+        }
+      },
+      scales: {
+        x: {
+          offset: true,   // 1点のみのとき中央に表示
+          grid:   { color: 'rgba(255,255,255,.05)' },
+          ticks:  { maxTicksLimit: 7 },
+        },
+        y: {
+          beginAtZero: true,
+          suggestedMax: 10,
+          grid:  { color: 'rgba(255,255,255,.1)' },
+          ticks: {
+            stepSize: 1,
+            callback: v => v >= 1000 ? (v/1000).toFixed(1)+'K' : v,
+          }
+        }
+      }
+    }
+  });
+}
+
+/* ============================================================
+   カラーレポート描画
+   ============================================================ */
+function renderColorReport(colorData, rankData) {
+  const container = document.getElementById('visual-report-container');
+  if (!colorData || !colorData.length) {
+    container.innerHTML = '<div class="loading">カラーデータがありません</div>';
+    return;
+  }
+
+  const top1  = colorData[0];
+  const top2  = colorData[1] || null;
+  const total = colorData.reduce((s, c) => s + c.count, 0) || 1;
+
+  let html = `
+    <div style="text-align:center;margin-bottom:24px;">
+      <h2 style="font-size:18px;color:var(--accent);margin-bottom:10px;">🤖 AIカラー解析レポート</h2>
+      <div style="background:rgba(255,77,166,.1);padding:15px;border-radius:8px;
+                  border:1px solid rgba(255,77,166,.3);font-size:14px;line-height:1.6;">
+        現在のトレンドは <strong style="color:var(--gold);font-size:16px;">${top1.color}</strong>！<br>
+        ${top2 ? `次点は <strong style="color:var(--silver);">${top2.color}</strong>。` : ''}
+      </div>
+    </div>
+    <h3 style="font-size:15px;margin-bottom:12px;color:var(--text-muted);">📊 カラー別シェア</h3>`;
+
+  colorData.forEach(c => {
+    const pct = Math.round(c.count / total * 100);
+    html += `
+      <div class="color-bar-item">
+        <span class="color-name">${c.color}</span>
+        <div class="color-bar-inner">
+          <div class="color-bar-fill" style="width:${pct}%"></div>
+        </div>
+        <span class="color-pct">${pct}%</span>
+      </div>`;
+  });
+
+  html += `<h3 style="font-size:15px;margin:24px 0 12px;color:var(--text-muted);">🖼️ 代表作品</h3>
+           <div class="thumb-row">`;
+  rankData.slice(0, 5).forEach(w => {
+    html += `
+      <div class="thumb-item">
+        <a href="${w.url}" target="_blank" style="text-decoration:none;">
+          <img src="${w.thumb}" alt="${w.title}"
+               onerror="this.style.visibility='hidden'">
+          <div class="thumb-item-title">${w.title}</div>
+        </a>
+      </div>`;
+  });
+  html += '</div>';
+
+  container.innerHTML = html;
+}
+
+/* ============================================================
+   初期化
+   ============================================================ */
+loadData();
+</script>
 </body>
 </html>

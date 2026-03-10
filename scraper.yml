@@ -11,28 +11,46 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        
+        with:
+          # 既存の ranking_history.json を正しく取得するため全履歴を取得
+          fetch-depth: 0
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install requests beautifulsoup4 Pillow
-          
+
       - name: Run Scraper
         run: python scraper.py
-        
+
+      - name: Show output (debug)
+        run: |
+          echo "=== ranking_data.json (先頭3件) ==="
+          python3 -c "
+          import json
+          with open('ranking_data.json') as f:
+              data = json.load(f)
+          for item in data[:3]:
+              print(f\"rank={item['rank']} dl={item['dl']} tags={len(item['tags'])}件 title={item['title'][:20]}\")
+          "
+          echo ""
+          echo "=== tag_ranking.json ==="
+          cat tag_ranking.json
+
       - name: Commit and push changes
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add ranking_data.json tag_ranking.json ranking_history.json color_ranking.json
-          git commit -m "Auto-update ranking data [skip ci]" || echo "No changes to commit"
+          git diff --cached --quiet && echo "変更なし。スキップします。" && exit 0
+          git commit -m "Auto-update ranking data [skip ci]"
           git push
