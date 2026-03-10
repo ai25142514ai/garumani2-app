@@ -36,56 +36,75 @@ def scrape_garumani():
     all_tags_count = {}
 
     for item in ranking_items:
-        # RJ番号の取得
-        id_link = item.select_one('a[href*="RJ"]')
-        if not id_link: continue
-        work_id = re.search(r'RJ\d+', id_link['href']).group()
-        if work_id.endswith('000'): continue
+        try:
+            # RJ番号の取得
+            id_link = item.select_one('a[href*="RJ"]')
+            if not id_link: continue
+            
+            href = id_link.get('href', '')
+            work_id_match = re.search(r'RJ\d+', href)
+            if not work_id_match: continue
+            
+            work_id = work_id_match.group()
+            if work_id.endswith('000'): continue
 
-        title = item.select_one('.work_name').get_text(strip=True)
+            title_elem = item.select_one('.work_name') or item.select_one('.n_work_name a')
+            title = title_elem.get_text(strip=True) if title_elem else "不明なタイトル"
 
-        # サークル名の取得 (セレクタを強化)
-        circle_elem = item.select_one('.maker_name') or item.select_one('.work_maker')
-        circle = circle_elem.get_text(strip=True) if circle_elem else "不明なサークル"
+            circle_elem = item.select_one('.maker_name') or item.select_one('.work_maker') or item.select_one('.n_maker_name a')
+            circle = circle_elem.get_text(strip=True) if circle_elem else "不明なサークル"
 
-        work_url = id_link['href']
-        full_text = item.get_text(" ", strip=True) # スペース区切りで取得
+            work_url = href
+            full_text = item.get_text(" ", strip=True) # スペース区切りで取得
 
-        # 価格の抽出 (50,000円以下の最大値)
-        prices = [int(p.replace(',', '')) for p in re.findall(r'(\d{1,3}(?:,\d{3})*)円', full_text)]
-        base_price = max([p for p in prices if p <= 50000]) if prices else 0
+            # 価格の抽出 (50,000円以下の最大値)
+            prices = [int(p.replace(',', '')) for p in re.findall(r'(\d{1,3}(?:,\d{3})*)円', full_text)]
+            base_price = max([p for p in prices if p <= 50000]) if prices else 0
 
-        # DL数の抽出 (「12,345 DL」や「500+ ダウンロード」に対応)
-        dl_match = re.search(r'([\d,]+)(?:\s?DL|ダウンロード)', full_text)
-        dl_count = int(dl_match.group(1).replace(',', '')) if dl_match else 0
+            # DL数の抽出 (「12,345 DL」や「500+ ダウンロード」に対応)
+            dl_match = re.search(r'([\d,]+)(?:\s?DL|ダウンロード)', full_text)
+            dl_count = int(dl_match.group(1).replace(',', '')) if dl_match else 0
 
-        # 発売日の抽出
-        date_match = re.search(r'\d{4}/\d{2}/\d{2}', full_text)
-        release_date = date_match.group() if date_match else "不明"
+            # 発売日の抽出
+            date_match = re.search(r'\d{4}[年/]\d{1,2}[月/]\d{1,2}', full_text)
+            release_date = date_match.group().replace('年', '-').replace('月', '-').replace('/', '-') if date_match else "不明"
 
-        # タグの取得 (除外設定)
-        exclude_formats = ["マンガ", "ボイス・ASMR", "ゲーム", "動画", "その他", "少女マンガ", "同人誌"]
-        raw_tags = item.select('.search_tag a')
-        filtered_tags = []
-        for t_elem in raw_tags:
-            t_text = t_elem.get_text(strip=True)
-            if t_text and t_text not in exclude_formats:
-                filtered_tags.append(t_text)
-                all_tags_count[t_text] = all_tags_count.get(t_text, 0) + 1
+            # タグの取得 (除外設定)
+            exclude_formats = ["マンガ", "ボイス・ASMR", "ゲーム", "動画", "その他", "少女マンガ", "同人誌", "ボイス・ASMR", "CG・イラスト"]
+            # Try parsing from ga4 hidden attribute or work_category if search_tag fails
+            raw_tags_elems = item.select('.search_tag a') or item.select('.work_category')
+            filtered_tags = []
+            
+            if raw_tags_elems:
+                for t_elem in raw_tags_elems:
+                    t_text = t_elem.get_text(strip=True)
+                    if t_text and t_text not in exclude_formats:
+                        filtered_tags.append(t_text)
+                        all_tags_count[t_text] = all_tags_count.get(t_text, 0) + 1
+            else:
+                # ga4_event fallback
+                ga4_elem = item.select_one(f'.ga4_event_item_{work_id}')
+                if ga4_elem and ga4_elem.get('data-options'):
+                    for tag_code in ga4_elem.get('data-options').split('#'):
+                        filtered_tags.append(tag_code)
+                        all_tags_count[tag_code] = all_tags_count.get(tag_code, 0) + 1
 
-        processed_data.append({
-            "rank": len(processed_data) + 1,
-            "id": work_id,
-            "title": title,
-            "circle": circle,
-            "price": base_price,
-            "dl": dl_count,
-            "date": release_date,
-            "tags": filtered_tags,
-            "thumb": thumb_map.get(work_id, ""),
-            "url": work_url
-        })
-        time.sleep(1.2)
+            processed_data.append({
+                "rank": len(processed_data) + 1,
+                "id": work_id,
+                "title": title,
+                "circle": circle,
+                "price": base_price,
+                "dl": dl_count,
+                "date": release_date,
+                "tags": list(set(filtered_tags)),
+                "thumb": thumb_map.get(work_id, ""),
+                "url": work_url
+            })
+            time.sleep(1.2)
+        except Exception as e:
+            print(f"Error processing item: {e}")
+            continue
 
     # JSON保存
     with open('ranking_data.json', 'w', encoding='utf-8') as f:
