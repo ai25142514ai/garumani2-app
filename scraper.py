@@ -88,6 +88,7 @@ def scrape_garumani():
             # ブラックリストの文字列を含むものを除外
             blacklist_words = ["ジャンル一覧", "保存した検索条件", "割引中", "クーポン", "一覧へ", "すべて見る", "ランキング"]
             filtered_tags = []
+            voice_actors = set()
             
             try:
                 # 紳士的なスクレイピングのための待機 (一覧取得後も最低限待機)
@@ -97,17 +98,8 @@ def scrape_garumani():
                 detail_res = session.get(work_url, headers=headers, timeout=15)
                 detail_soup = BeautifulSoup(detail_res.content, 'html.parser')
 
-                # 声優のリストを取得して除外用に保持
-                voice_actors = set()
-                # 典型的な声優を列挙する要素から取得
-                va_links = detail_soup.select('th:contains("声優") + td a, th:contains("キャスト") + td a')
-                for va in va_links:
-                    va_name = va.get_text(strip=True).replace('#', '')
-                    if va_name:
-                        voice_actors.add(va_name)
-                
-                # ジャンル専用のコンテナのみを狙う
-                raw_tags_elems = detail_soup.select('.main_genre a, #work_genre a, .work_genre a, .work_right_info_tag a')
+                # ジャンル専用のコンテナのみを狙う（条件1: .main_genre内のaタグ、条件2: hrefに/genre/を含むaタグ）
+                raw_tags_elems = detail_soup.select('.main_genre a, a[href*="/genre/"]')
                 
                 for t_elem in raw_tags_elems:
                     t_text = t_elem.get_text(strip=True)
@@ -135,7 +127,10 @@ def scrape_garumani():
             except Exception as tag_e:
                 print(f"[DEBUG] 詳細ページからのタグ取得失敗 - ID: {work_id}, URL: {work_url}, Error: {tag_e}")
 
-            for tag in set(filtered_tags): # 重複を避けてカウント
+            unique_tags = list(set(filtered_tags))
+            print(f"Work {work_id}: Found {len(unique_tags)} tags")
+
+            for tag in unique_tags: # 重複を避けてカウント
                 all_tags_count[tag] = all_tags_count.get(tag, 0) + 1
                         
             # デバッグ情報出力
