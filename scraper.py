@@ -20,6 +20,7 @@ def scrape_garumani():
 
         html = page.content()
         print(f"[DEBUG] HTML文字数: {len(html)}")
+        print(html[:3000])
 
         from bs4 import BeautifulSoup
         soup = BeautifulSoup(html, 'html.parser')
@@ -106,29 +107,4 @@ def scrape_garumani():
         browser.close()
 
     with open('ranking_data.json', 'w', encoding='utf-8') as f:
-        json.dump(processed_data, f, ensure_ascii=False, indent=2)
-
-    tag_ranking = sorted([{"tag": k, "count": v} for k, v in all_tags_count.items()], key=lambda x: x['count'], reverse=True)[:20]
-    with open('tag_ranking.json', 'w', encoding='utf-8') as f:
-        json.dump(tag_ranking, f, ensure_ascii=False, indent=2)
-
-    try:
-        with open('ranking_history.json', 'r', encoding='utf-8') as f:
-            history = json.load(f)
-            if not isinstance(history, list):
-                history = []
-    except:
-        history = []
-
-    today_str = datetime.now().strftime('%Y-%m-%d')
-    history = [h for h in history if isinstance(h, dict) and h.get('date') != today_str]
-    history.append({"date": today_str, "data": processed_data})
-    history = history[-90:]
-
-    with open('ranking_history.json', 'w', encoding='utf-8') as f:
-        json.dump(history, f, ensure_ascii=False, indent=2)
-
-    print(f"[INFO] 完了: {len(processed_data)}件取得")
-
-if __name__ == "__main__":
-    scrape_garumani()
+        json.dump(processed​​​​​​​​​​​​​​​​
